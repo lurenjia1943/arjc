@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+		<script type="text/javascript">
+
+		function PreviewPage()
+		{
+			window.location ="kingview_setting_page.html";
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="about_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">关于</h1>
+			</div>
+
+			<label class="shadow" style="height:35px;margin:0;padding-top:15px;">组态王KingMobile客户端</label>
+
+			<label class="shadow" style="height:35px;margin:0;padding-top:15px;">版本号: 1.0.0.1</label>
+
+			<label class="shadow" style="height:35px;margin:0;padding-top:15px;">北京亚控科技发展有限公司 版权所有</label>
+
+			<label class="shadow" style="position:fixed;bottom:5%;width:100%;height:40px;padding-top:20px;text-align:center;">Copyright(c)2017北京亚控科技发展有限公司</label>
+		</div>
+	</body>
+</html>

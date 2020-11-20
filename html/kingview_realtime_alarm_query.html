@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/easyui/default/easyui.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_realtime.js"></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/html2canvas/html2canvas.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+		<script type="text/javascript">
+		var g_userhandle;
+		var g_publickey;
+		var g_priority;
+		var g_newAlarmShow;
+		var g_refreshAlarm;
+
+		$(document).on("pageinit", "#realtimealarmquery_page", function()
+		{
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+			
+			//加载实时报警数据变量组配置信息
+			LoadVarGroupConfigInfo();
+			
+			//初始化实时报警数据报表属性页
+			InitRealtimeAlarmPropertyPage();
+		});
+		
+		//加载实时报警数据变量组配置信息
+		function LoadVarGroupConfigInfo()
+		{
+			//获取历史数据当前变量组
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			if(typeof VarGroupIndex != "undefined")
+			{
+				var object = window.sessionStorage.AlarmRealtimeConfigInfo;
+				if(typeof object != "undefined")
+				{
+					var AlarmRealtimeConfigInfo = eval(object);  
+					for(var i = 0; i < AlarmRealtimeConfigInfo.length; i++)
+					{
+						if(AlarmRealtimeConfigInfo[i].VarGroupIndex == VarGroupIndex)
+						{
+							//优先级
+							g_priority = AlarmRealtimeConfigInfo[i].Priority;
+							
+							//新报警显示
+							g_newAlarmShow = AlarmRealtimeConfigInfo[i].NewAlarmShow;
+							
+							//刷新报警
+							g_refreshAlarm = AlarmRealtimeConfigInfo[i].RefreshAlarm;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		//初始化实时报警数据报表属性页
+		function InitRealtimeAlarmPropertyPage()
+		{
+			//优先级
+			if(typeof g_priority != "undefined")
+			{
+				$("#Pritxt").val(g_priority);
+			}
+
+			//新报警显示
+			var NewAlarmSwitch = $("#NewAlarmShow");
+			var RefreshAlarmSwitch = $("#RefreshAlarm");
+			NewAlarmSwitch[0].selectedIndex = 0;
+			RefreshAlarmSwitch[0].selectedIndex = 0;
+			if(typeof g_newAlarmShow != "undefined")
+			{
+				if(g_newAlarmShow == "true")
+				{
+					NewAlarmSwitch[0].selectedIndex = 1;
+				}
+			}
+
+			//刷新报警
+			if(typeof g_refreshAlarm != "undefined")
+			{
+				if(g_refreshAlarm == "true")
+				{
+					RefreshAlarmSwitch[0].selectedIndex = 1;
+				}
+			}
+			NewAlarmSwitch.slider("refresh");
+			RefreshAlarmSwitch.slider("refresh");
+		}
+
+		function PreviewPage()
+		{
+			//优先级
+			g_priority = $("#Pritxt").val();
+			if(g_priority < 1 || g_priority > 999)
+			{
+				alert("优先级：请输入1~999之间的数字！");
+				return;
+			}
+
+			//保存变量组配置信息
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			var object = window.sessionStorage.AlarmRealtimeConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var AlarmRealtimeConfigInfo = eval(object);  
+				for(var i = 0; i < AlarmRealtimeConfigInfo.length; i++)
+				{
+					if(AlarmRealtimeConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{
+						AlarmRealtimeConfigInfo[i].Priority = g_priority;
+						AlarmRealtimeConfigInfo[i].NewAlarmShow = g_newAlarmShow;
+						AlarmRealtimeConfigInfo[i].RefreshAlarm = g_refreshAlarm;
+						break;
+					}
+				}
+				window.sessionStorage.AlarmRealtimeConfigInfo = JSON.stringify(AlarmRealtimeConfigInfo); 
+			}
+			window.location="kingview_alarmdata_page.html";
+		}
+
+		function RefreshAlarmChanged()
+		{
+			var RefreshAlarmSwitch = $("#RefreshAlarm");
+			if(RefreshAlarmSwitch[0].selectedIndex == 1)
+			{
+				g_refreshAlarm = "true";
+			}
+			else
+			{
+				g_refreshAlarm = "false";
+			}
+		}
+
+		function NewAlarmShowChanged()
+		{
+			var NewAlarmSwitch = $("#NewAlarmShow");
+			if(NewAlarmSwitch[0].selectedIndex == 1)
+			{
+				g_newAlarmShow = "true";
+			}
+			else
+			{
+				g_newAlarmShow = "false";
+			}
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="realtimealarmquery_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">实时报警参数设置</h1>
+			</div>
+
+			<div class="fieldcontain">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">优先级</label>
+						</td>
+						<td>
+							<input type="number" name="test" id="Pritxt" style="width:95px" value="1">
+						</td>
+					</tr>
+				</table>
+
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">自动更新报警信息</label>
+						</td>
+						<td>
+							<select id="RefreshAlarm" data-role="slider" onchange="RefreshAlarmChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:40px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">新报警显示在最前</label>
+						</td>
+						<td>
+							<select id="NewAlarmShow" data-role="slider" onchange="NewAlarmShowChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:40px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

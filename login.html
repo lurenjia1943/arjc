@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+  	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<link rel="stylesheet" href="./thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+	<link rel="stylesheet" type="text/css" href="./thirdpart/easyui/default/easyui.css"/> 
+	<link rel="stylesheet" type="text/css" href="./thirdpart/easyui/icon.css" />
+	<link rel="stylesheet" type="text/css" href="./js/KingMobile.css" />
+
+	<script type="text/javascript" id = "kmclientinterface" ></script>
+	<script type="text/javascript" src="./js/kmresultjsonparse_history.js"></script>
+	<script type="text/javascript" src="./js/kmwebdataserverparameters.js"></script>
+	<script type="text/javascript" src="./thirdpart/jquery/jquery-2.1.4.min.js"></script>
+	<script type="text/javascript" src="./thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+	<!--script type="text/javascript" src="http://pv.sohu.com/cityjson?ie=utf-8"></script-->
+
+	<!--加密用-->
+	<script type="text/javascript" src="./thirdpart/cryptico-master/jsbn.js"></script>
+	<script type="text/javascript" src="./thirdpart/cryptico-master/random.js"></script>
+	<script type="text/javascript" src="./thirdpart/cryptico-master/hash.js"></script>
+	<script type="text/javascript" src="./thirdpart/cryptico-master/rsa.js"></script>
+	<script type="text/javascript" src="./thirdpart/cryptico-master/aes.js"></script>
+	<script type="text/javascript" src="./thirdpart/cryptico-master/api.js"></script>
+	<script type="text/javascript" src="./thirdpart/cryptico-master/cryptico.js"></script>
+	<script type="text/javascript" src="./thirdpart/cryptico-master/cryptico.min.js"></script>
+	<script>
+	
+	
+	$(document).on("pageinit", "#login_page", function()
+	{
+		if (window.sessionStorage.serverIP == undefined) 
+		{
+			window.sessionStorage.serverIP = "127.0.0.1";
+		}
+		if (window.sessionStorage.serverPort ==  "undefined") 
+		{
+			window.sessionStorage.serverPort = "802";
+		}
+
+		KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+		kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+		$("#serverName").val(window.sessionStorage.serverIP);
+		if (localStorage.save_username == "undefined") 
+		{
+			$("#username").val("user1");
+			localStorage.save_username = "user1";
+		}
+		else
+		{
+			$("#username").val(localStorage.save_username );
+		}
+		
+		if (localStorage.rmbPassword == "true")
+		{ 
+			$("#savePassword").attr('checked',true).checkboxradio("refresh");
+			$("#username").val(localStorage.save_username );
+			if(localStorage.save_password == "Wellintech.KingView")
+			{
+				localStorage.save_password = "";
+			}
+			$("#password").val(localStorage.save_password); 
+		}
+		else
+		{
+			$("#password").val(""); 
+			$("#savePassword").attr('checked',false).checkboxradio("refresh");
+		}
+
+		if (localStorage.save_servername == "undefined") 
+		{
+			$("#serverName").val("127.0.0.1");
+			localStorage.save_servername = "127.0.0.1";
+		}
+		else
+		{
+			$("#serverName").val(localStorage.save_servername);
+		}
+		if (localStorage.save_serverport == "undefined") 
+		{
+			localStorage.save_serverport = "802";
+		}
+
+		window.sessionStorage.username = localStorage.save_username;
+		window.sessionStorage.password = localStorage.save_password;
+		window.sessionStorage.serverIP = localStorage.save_servername;
+		window.sessionStorage.serverPort = localStorage.save_serverport;
+	});
+
+	window.onload=function()
+	{
+	    if (location.href.indexOf("?xyz=")<0)
+        {
+			location.href=location.href+"?xyz="+Math.random();
+        }
+	}
+	
+	function LoginAction(){
+		var username = $("#username").val();
+		var password = $("#password").val();
+		if(username == "")
+		{
+			alert("用户名不能为空，请重新输入！");
+			return;
+		}
+		if((/[\u4e00-\u9fa5]+/).test(password))
+		{     
+			alert("密码不能含有汉字！");
+			return;
+		}
+		if(password == "")
+		{
+			password = "Wellintech.KingView";
+		}		
+		if(window.navigator.onLine == false)
+		{
+			alert("登录失败，请检查当前网络状况！");
+			return;
+		}	
+		if(typeof KM == "undefined")
+		{
+			alert("登录失败，数据后台服务可能没有启动，请刷新后重试！");
+			return;
+		}
+
+		var iclient = new KM.ClientInterface;
+		iclient.KmLogin(username, password, function(result) {
+			if(typeof result == "object")
+			{
+				if(typeof result.responseText != "undefined")
+				{
+					alert(result.responseText);
+				}
+				else
+				{
+					alert("未定义错误");
+				}
+			}
+			else
+			{
+				var ret = result.split(":");
+				if( ret[0] == "failed")
+				{
+					alert(ret[1]);
+				}
+				else
+				{
+					window.sessionStorage.userhandle = ret[0];
+					window.sessionStorage.publickey = ret[1];
+				
+					CheckUserInfo();
+					SavePassword();
+					localStorage.save_username = username;
+					localStorage.save_password = password;
+					localStorage.save_servername = $("#serverName").val();
+
+					if((window.sessionStorage.user_name != user_name)||
+					(window.sessionStorage.serverIP != $("#serverName").val())||
+					(window.sessionStorage.serverPort != localStorage.save_serverport))
+					{
+					   window.sessionStorage.clear(); 
+					}
+					
+					window.sessionStorage.userhandle = ret[0];
+					window.sessionStorage.publickey = ret[1];
+					
+					window.sessionStorage.username = $("#username").val();
+					window.sessionStorage.password = localStorage.save_password;
+					window.sessionStorage.serverIP = $("#serverName").val();
+					window.sessionStorage.serverPort = localStorage.save_serverport;
+
+					window.sessionStorage.loginTime = new Date().Format("yyyy-MM-dd hh:mm:ss"); 
+					window.location = "html/kingview_realtimedata_page.html";
+				}
+			}
+		});
+	}	
+	
+	function CheckUserInfo()
+	{
+		//更新登录信息
+		var iclient = new KM.ClientInterface;
+		var UserHandle = window.sessionStorage.userhandle;
+		var DataSourceName = "KVUser";
+		var CommandType = "CheckUserInfo";	
+		//var ClientIp = returnCitySN["cip"];	
+		var ClientIp;
+		iclient.KmGetClientAddr(function(Result){ClientIp = Result});
+		var UserName = $("#username").val();
+		var JsonString_UserInfo = ClientIp;
+		JsonString_UserInfo += ";"
+		JsonString_UserInfo += UserName;
+		
+		//var iclient = new KM.ClientInterface;
+		iclient.KmGetAllTagNameFromDataSource(UserHandle, DataSourceName, CommandType, JsonString_UserInfo, function(JsonString_Result){
+		});
+	}
+	
+ 	function SavePassword()
+	{
+	 	if(document.getElementById("savePassword").checked)
+		{
+			var username = $("#username").val();
+			var password = $("#password").val();
+			window.sessionStorage.username =  username;
+			window.sessionStorage.password = password;
+			localStorage.rmbPassword = true;
+		}
+		else
+		{
+			localStorage.rmbPassword = false;
+		}
+	}
+	
+	function ServerConfig()
+	{
+		window.localStorage.PrePage="loginPage";
+		window.location = "html/kingview_server_config.html";
+	}
+	</script>
+
+	<style type="text/css">
+    	body{margin: 0;padding: 0;}
+     	*{margin: 0;padding: 0}
+	</style>
+	
+	<script language=javascript>
+		if (screen.width < 800)
+		{
+			document.write('<link rel=stylesheet type="text/css" href="./js/css800.css">')
+		}
+		else 
+		{
+			document.write('<link rel=stylesheet type="text/css" href="./js/css1024.css">')
+		}
+	</script>
+	
+</head>
+<body>
+	<div data-role="page" id="login_page" style="background:url(./images/login.png) no-repeat;background-size:cover;background-position:center;">
+		<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+			<h1 style="padding-top:20px;">组态王客户端</h1>
+		</div>
+
+		<div data-role="content">
+			<div>
+				<div style="text-align:center;">
+					<img src="./images/yklogo.png" width="140" height="140">
+				</div>
+			</div>
+
+			<form method="post" action="" style="padding-left:5%">
+				<div data-role="fieldcontain">
+					<table>
+						<tr>
+							<td id="user_name">
+								<label id="login" for="username" style="margin:auto;font-size:15px">用户名：</label>
+							</td>
+							<td>
+								<input style="margin:auto;font-size:15px" type="text" name="username" id="username"  placeholder="输入用户名..." >
+							</td>
+						</tr>
+
+						<tr>
+							<td>
+								<label id="login" for="password" style="margin:auto;font-size:15px">密&nbsp码：</label>
+							</td>
+							<td>
+								<input style="margin:auto;font-size:15px" type="password" name="password" id="password" placeholder="输入密码...">
+							</td>
+							<td>
+								<label for="savePassword" style="margin:auto;border:none;background-color:#EBF2F9;"></label>
+								<input type="checkbox" name="savePassword" id="savePassword" checked="checked" onclick="SavePassword()">
+							</td>
+						</tr>
+
+						<tr>
+							<td>
+								<label id="login" for="serverName" style="margin:auto;margin-bottom:0;font-size:15px">服务器：</label>
+							</td>
+							<td>
+								<input style="margin:auto;" class="adaptive_box" type="text" name="serverName" id="serverName" text="127.0.0.1" readonly="readonly">
+							</td>
+							<td>
+								<a href="#"><img src="./images/1.png" style="padding-left:10%;width:24px;" onclick="ServerConfig()"></a>
+							</td>
+						</tr>
+					</table>
+				</div>
+			</form>
+		</div>
+		
+		<div class="big_login">
+			<a id="up_down" style="margin:auto;margin-bottom:0;height:20px;text-align:center;font-family:Droid Sans Fallback; font-weight:normal;font-size:16px;background-color:#D43C33;color:#FFF;" href="#" data-role="button" onclick="LoginAction()">登录</a>
+		</div>
+
+		<div data-role="footer" id="KMFooter" data-position="fixed" data-tap-toggle="false">
+			<label style="padding-top:20px;font-size:15px;text-align:center;background-color:#D43C33;color:#FFF;height:60px">Copyright(c)2017 北京亚控科技发展有限公司</label>
+		</div>
+	</div>
+</body>
+</html>

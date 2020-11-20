@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		
+		<link rel="stylesheet" href="../js/KingMobile.css"> 
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">		
+		
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_realtime.js"></script>
+       
+	   <script>
+		var g_userhandle;
+		var g_tagBasicInfo = [];
+		var g_fieldID = 1;  //默认值域
+		var g_fieldType = "0";
+		
+	    $(document).on("pageinit", "#realtimereportsetvalue_page", function() 
+		{
+            g_userhandle = window.sessionStorage.userhandle;
+            KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+			var obj = window.sessionStorage.selectTagBasicInfo;
+			if(typeof obj != "undefined")
+			{
+			  g_tagBasicInfo = obj.split(",");
+			}
+			InitFieldContent();
+		});
+
+		function InitFieldContent()
+		{
+            if(g_tagBasicInfo.length <= 0)
+			{
+				alert("获取变量信息失败！");
+				return;
+			}
+			var tagValueType = g_tagBasicInfo[1];
+			var tagValueSubType = g_tagBasicInfo[2];
+			
+			if(tagValueType == "离散型" && tagValueSubType == "MEM")
+			{
+				g_FieldNameArray = g_FieldNameArray_Bool;
+			}
+			else if(tagValueType == "整型" && tagValueSubType == "MEM")
+			{
+				g_FieldNameArray = g_FieldNameArray_Int;
+			}
+			else if(tagValueType == "双精度浮点型" && tagValueSubType == "MEM")
+			{
+				g_FieldNameArray = g_FieldNameArray_Float;
+			}
+			else if(tagValueType == "字符串型" && tagValueSubType == "MEM")
+			{
+				g_FieldNameArray = g_FieldNameArray_String;
+			}
+			
+			if(tagValueType == "离散型" && tagValueSubType == "IO")
+			{
+				g_FieldNameArray = g_FieldNameArray_IOBool;
+			}
+			else if(tagValueType == "整型" && tagValueSubType == "IO")
+			{
+				g_FieldNameArray = g_FieldNameArray_IOInt;
+			}
+			else if(tagValueType == "双精度浮点型" && tagValueSubType == "IO")
+			{
+				g_FieldNameArray = g_FieldNameArray_IOFloat;
+			}
+			else if(tagValueType == "字符串型" && tagValueSubType == "IO")
+			{
+				g_FieldNameArray = g_FieldNameArray_IOString;
+			}
+			if(g_FieldNameArray.length <=0)
+			{
+				alert("获取变量域信息失败！");
+				return;
+			}
+			//域
+			var strHTMLFirst = "<option selected=selected>"+g_FieldNameArray[0] + "</option>";
+			var strHTML = "";
+			for ( var i = 1; i < g_FieldNameArray.length; i++)
+            {
+				strHTML = strHTML + "<option>"+g_FieldNameArray[i] + "</option>";
+			}
+            $("#fieldList").append(strHTMLFirst+strHTML);
+            $("#fieldList").selectmenu("refresh");
+			
+			document.getElementById("tagName").innerHTML = g_tagBasicInfo[0];
+			document.getElementById("curValue").innerHTML = g_tagBasicInfo[3];
+			document.getElementById("timeVlue").innerHTML = g_tagBasicInfo[4];
+			document.getElementById("curFieldValue").innerHTML = g_tagBasicInfo[3];
+			
+			//获取值类型,参照kvTVAPI.h
+			var tagValueType = g_tagBasicInfo[1];
+			if(tagValueType == "离散型")
+			{
+				g_fieldType = "1";
+			}
+			else if(tagValueType == "整型")
+			{
+				g_fieldType = "6";
+			}
+			else if(tagValueType == "双精度浮点型")
+			{
+				g_fieldType = "11";
+			}
+			else if(tagValueType == "字符串型")
+			{
+				g_fieldType = "13";
+			}
+			
+			if(tagValueType ==  "离散型")
+			{
+			   ShowSelect();
+			}
+			else
+			{
+				HideSelect();
+			}
+		}
+		
+		function setTextVal(s)
+		{
+			if( s == "on")
+			{
+				 document.getElementById("setFieldValue").value = "true";
+			}	
+			else if(s == "off")
+			{
+			     document.getElementById("setFieldValue").value = "false";
+			} 			
+		}
+		
+		function ShowSelect()
+		{
+			   var obj = document.getElementById("Dis");
+			   var obj2 =  document.getElementById("NoDis");
+			   obj.style.display = "";
+			   obj2.style.display = "none";
+
+		}
+		
+		function HideSelect()
+		{
+			   var obj = document.getElementById("NoDis");
+			   var obj2 =  document.getElementById("Dis");
+			   obj.style.display = "";
+			   obj2.style.display = "none";			
+		}
+		
+		
+		function OnRefresh()
+		{
+			OnSelectField();
+		}
+
+		function OnSelectField()
+		{
+			var selectFieldName = document.getElementById("fieldList").value;
+			//默认值域
+			for (var i = 0; i < g_FieldNameArray.length; i++)
+			{
+				var fieldName = g_FieldNameArray[i];
+				if(fieldName == selectFieldName)
+				{
+					g_fieldID = i+1;
+					break;
+				}
+			} 
+			var strJson = GetFieldValueFromKVAction(g_tagBasicInfo[0],g_fieldID.toString());
+			var obj = JSON.parse(strJson);
+			var curFieldVale = obj.Body.records[0];
+			var curFieldQuality = obj.Body.records[1];
+			var curFieldDate = obj.Body.records[2];
+			g_fieldType = obj.Body.records[3];
+			document.getElementById("curFieldValue").innerHTML = curFieldVale;
+			if(g_fieldType == 1)
+			{
+			   ShowSelect();
+			}
+			else
+			{
+				HideSelect();
+			}
+			//值域同步更新
+			if(selectFieldName == "VALUE")
+			{
+				document.getElementById("curValue").innerHTML = curFieldVale;
+				document.getElementById("timeVlue").innerHTML = curFieldDate;
+			}	
+			document.getElementById("setFieldValue").value = "";	
+			document.getElementById("Tiplabel").innerHTML ="";		  
+		}
+	   
+		function WriteFieldValue()
+		{
+			var value = document.getElementById("setFieldValue").value;
+			if(value == "")
+			{
+				alert("请输入设定值！");
+				return;
+			}
+			var retVal = SetFieldValueToKVAction(g_tagBasicInfo[0],g_fieldID.toString(),g_fieldType,value);
+			if(retVal)
+			{
+				document.getElementById("Tiplabel").innerHTML ="变量域值写入成功！";
+				$("label[id='Tiplabel']").attr("style","color:green");
+			} 
+			else
+			{
+				document.getElementById("Tiplabel").innerHTML ="变量域值写入失败！";
+				$("label[id='Tiplabel']").attr("style","color:red");
+			}
+		}
+		
+		function PreviewPage()
+		{
+			window.location="kingview_realtimedata_page.html";
+		}
+    	</script>
+	</head>
+
+    <body>
+		<div data-role="page" id="realtimereportsetvalue_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">变量域设置</h1>
+			</div>
+
+			<div date-role="fieldcontain">
+				<table class="shadow" style="height:50px;">
+					<td style="width:100%;">
+						<label style="font-size:16px">变量名称：</label>
+					</td>
+					
+					<td>
+				        <label style="font-size:16px;width:200px; text-align:right;" id="tagName">###</label>
+				    </td>
+				</table>
+
+				<table class="shadow" style="height:50px;">
+					<td style="width:100%;">
+						<label style="font-size:16px">当前值：</label>
+					</td>
+					
+					<td>
+				        <label style="font-size:16px;width:200px;text-align:right;" id="curValue">###</label>
+				    </td>
+				</table>
+
+				<table class="shadow" style="height:50px;">
+					<td style="width:100%;">
+						<label style="font-size:16px">时间戳：</label>
+					</td>
+					
+					<td>
+				        <label style="font-size:16px;width:200px;text-align:right;" id="timeVlue">###</label>
+				    </td>
+				</table>
+
+				<table class="shadow" style="height:50px;">
+					<td style="width:100%;">
+						<label style="font-size:16px">域名：</label>
+					</td>
+					
+					<td>
+				        <select name="selectField" id="fieldList" onchange = "OnSelectField()"></select>
+				    </td>
+				</table>
+
+				<table class="shadow" style="height:50px;">
+					<td style="width:100%;">
+						<label style="font-size:16px">域值：</label>
+					</td>
+					
+					<td>
+				        <label style="font-size:16px;width:200px;text-align:right;" id="curFieldValue">###</label>
+				    </td>
+				</table>
+
+				<!--
+				<table class="shadow" style="height:50px;">
+					<td style="width:100%;">
+						<label style="font-size:16px">Feild new value:</label>
+					</td>
+			
+					<td>
+				        <input type="text" style="width:180px" id="setFieldValue">
+					</td>
+					
+					<td>
+						<select id="SetDisFieldValue" style="display:none" onchange="setTextVal(this.options[this.options.selectedIndex].value)" data-role="slider">
+							<option value="on">On</option>
+							<option value="off" selected >Off</option>
+						</select>
+				    </td>
+					
+				</table>
+				-->
+				
+				<table  class="shadow" style="height:50px;">
+					<tr id= "NoDis">
+						<td style="width:100%;">
+							<label style="font-size:16px">Feild new value:</label>
+						</td>
+						
+						<td>
+							<input type="text" style="width:180px" id="setFieldValue">
+						</td>
+					</tr>
+					
+					
+					<tr id="Dis">
+						<td style="width:100%;">
+							<label style="font-size:16px">Feild new value:</label>
+						</td>
+						
+						<td>
+							<select id="SetDisFieldValue" style="display:none" onchange="setTextVal(this.options[this.options.selectedIndex].value)" data-role="slider">
+								<option value="on">On</option>
+								<option value="off" selected >Off</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+
+ 
+			</div>
+			
+			<div data-role="content" style="width:100%;height:10%">
+				<div style = "width:50%;float:left">
+					<button id="KMPrevRecordBtn" onclick = "OnRefresh()">刷新</button>
+				</div>
+
+				<div style = "width:50%;float:left">
+					<button id="KMNextRecordBtn" onclick = "WriteFieldValue()">写入</button>
+				</div>
+			</div>
+		</div>
+	
+    </body>  	
+</html>

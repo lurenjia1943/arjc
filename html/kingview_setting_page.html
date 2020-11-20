@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/easyui/default/easyui.css"/>
+		<link rel="stylesheet" type="text/css" href="../thirdpart/easyui/icon.css" />
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_realtime.js"></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+		
+		<script>
+		var alarmIndex = 0;
+		var g_showmessage;
+		var g_beep;
+		var g_vibration;
+		var IntervalTime = 5;
+		var g_selectAlarmGP = "RootNode";
+		var g_stationName = "local";
+		var g_userhandle;
+		var g_publickey;
+		
+		$(document).on("pageinit", "#setting_page", function() {	
+			g_userhandle = window.sessionStorage.userhandle;
+			g_publickey = window.sessionStorage.publickey;
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+			
+			//检测设备
+			var IsMobile = detectOS();
+			if(IsMobile == true)
+			{
+				var CordovaHead = document.getElementsByTagName("head")[0];
+				var CordovaScript = document.createElement("script");
+				CordovaScript.type = "text/javascript";
+				CordovaScript.src = "../cordova.js";
+				CordovaHead.appendChild(CordovaScript);
+
+				var IndexHead = document.getElementsByTagName("head")[0];
+				var IndexScript = document.createElement("script");
+				IndexScript.type = "text/javascript";
+				IndexScript.src = "../js/index.js";
+				IndexHead.appendChild(IndexScript);
+
+				g_showmessage = window.sessionStorage.g_showmessage;
+				g_showmessageinfo = window.sessionStorage.g_showmessageinfo;
+				g_beep = window.sessionStorage.g_beep;
+				g_vibration = window.sessionStorage.g_vibration;
+				if(g_showmessage == "true")
+				{
+					setInterval("OnAlarmNotify()",3000);
+				}
+			}
+		});
+		
+		//检测设备
+		function detectOS()
+		{
+			var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+			var isOpera = userAgent.indexOf("Opera") > -1;
+			if ((userAgent.indexOf("Opera") > -1) 
+				|| (userAgent.indexOf("Firefox") > -1)
+				|| (userAgent.indexOf("Chrome") > -1)
+				|| (userAgent.indexOf("Safari") > -1)
+				|| (userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1)) 
+			{
+				return false;
+			}
+		
+			//平台、设备和操作系统
+			var system = {
+				win : false,
+				mac : false,
+				xll : false
+			};
+			//检测平台
+			var p = navigator.platform;
+			system.win = p.indexOf("Win") == 0;
+			system.mac = p.indexOf("Mac") == 0;
+			system.x11 = (p == "X11") || (p.indexOf("Linux") == 0);
+
+			//跳转语句
+			if(system.win||system.mac||system.xll)
+			{
+				//转向后台登陆页面
+				return false;
+			}
+			else
+			{
+				return true;
+			}
+		}
+		
+		//报警通知
+		function OnAlarmNotify()
+		{
+			var strJson = GetRTAlarmDataFromKVAction();
+			if(strJson == "")
+			{
+				return;
+			}
+				
+			var obj = JSON.parse(strJson);
+			if (obj != null)
+			{
+				if (obj.Body.records != null)
+				{
+					var AlarmArray = [];
+					for(var i = 0; i < obj.Body.records.length; i++)
+					{
+						AlarmArray.push(obj.Body.records[i][4]);
+					}
+
+					var CurDate = new Date;
+					if(g_showmessage == "true")
+					{
+						var AlarmCount = 0;
+						var AlarmMessage = "您有-条新报警，请查看！";
+						for(var i = 0; i < AlarmArray.length; i++)
+						{
+							var AlarmDate = new Date(AlarmArray[i]).getTime();
+							var TimeInterval = (CurDate.getTime() - AlarmDate)/1000;
+							if( TimeInterval > 0 && TimeInterval < IntervalTime )
+							{
+								AlarmCount++;
+							}
+						}
+
+						var MessageCount = AlarmCount.toString();
+						if(MessageCount > 0)
+						{
+							AlarmMessage = AlarmMessage.replace("-", MessageCount);
+							cordova.plugins.notification.local.schedule({
+								date: new Date(),
+								message: AlarmMessage,
+								badge: 1,
+								id: alarmIndex,
+								sound:'sub.caf',
+								at:null,
+								background:'app.background()',
+								foreground:'app.running()'
+							});
+
+							if(g_beep == "true")
+							{
+								navigator.notification.beep(2);
+							}
+
+							if(g_vibration == "true")
+							{
+								navigator.notification.vibrate(2000);
+							}
+						}
+						alarmIndex++;
+					}
+				}
+			}	
+		}
+		
+		//获取实时报警属性
+		function LoadRealtimeAlarmProperty()
+		{
+			//获取实时图表属性
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			var object = window.sessionStorage.AlarmRealtimeConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var AlarmRealtimeConfigInfo = eval(object);
+				for(var i = 0; i < AlarmRealtimeConfigInfo.length; i++)
+				{
+					if(AlarmRealtimeConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{									
+						//优先级
+						g_priority = AlarmRealtimeConfigInfo[i].Priority;
+						break;						
+					}
+				}
+			}
+		}
+		
+		//获取报警数据
+		function GetRTAlarmDataFromKVAction()
+		{
+			//获取实时报警属性
+			LoadRealtimeAlarmProperty();	
+			var DataSourceName = "KV3";
+			var CommandType = "realtimealarmdata";
+			var StationName = g_stationName;	
+			var GroupName = g_selectAlarmGP;
+			var Alarmtype = 1;
+			var Eventtype = 2;
+			var Priority = g_priority;
+			if(typeof Priority != "undefined")
+			{
+				if(Priority < 1 || Priority > 999)
+				{
+					alert("优先级：请输入1~999之间的数字！");
+					return;
+				}
+			}
+			else
+			{
+				//设置默认查询条件
+				Priority = 1;
+			}
+			
+			var VarGroupName = window.sessionStorage.AlarmVarGroupName;
+			if(typeof VarGroupName == "undefined")
+			{
+				return;
+			}
+
+			var RetJson = "";
+			var QueryCondition = KmCreateJsonString_Condition_RealAlarm(StationName,GroupName,VarGroupName,Alarmtype,Eventtype,Priority);
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetRealAlarmDatas(g_userhandle,DataSourceName,CommandType,QueryCondition,function(JsonString_Result_KVRTAlarmDatas)
+			{
+				if(typeof JsonString_Result_KVRTAlarmDatas == "object")
+				{
+					if(typeof JsonString_Result_KVRTAlarmDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KVRTAlarmDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KVRTAlarmDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						RetJson = JsonString_Result_KVRTAlarmDatas;
+					}
+				}
+			});
+			return RetJson;
+		}
+
+		//登录信息
+		function LoginInfo()
+		{
+			window.location = "kingview_user_infor.html";
+		}
+
+		//服务器配置
+		function ServerConfig()
+		{
+			window.localStorage.PrePage = "settingPage";
+			window.location = "kingview_server_config.html";
+		}
+
+		//报警消息配置
+		function AlarmConfig()
+		{
+			window.location = "kingview_alarm_config.html";
+		}
+
+		//关于组态王
+		function About()
+		{
+			window.location = "kingview_about.html";
+		}
+
+		function LogOut()
+		{
+			var userhandle = window.sessionStorage.userhandle;
+			var iclient = new KM.ClientInterface;
+			iclient.KmLogoff(userhandle,function(result) {
+			if(typeof result == "object")
+				{
+					if(typeof result.responseText != "undefined")
+					{
+						alert(result.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = result.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+
+					}
+					else{
+						window.sessionStorage.userhandle = 0;
+						window.sessionStorage.publickey = "";
+						window.location = "../login.html";
+				}
+			}
+			});
+			window.location = "../login.html";
+		}
+
+		//实时数据
+		function KMRealtimeData()
+		{
+			window.location ="kingview_realtimedata_page.html";
+		}
+
+		//历史数据
+		function KMHistoryData()
+		{
+			window.location ="kingview_historydata_page.html";
+		}
+
+		//报警数据
+		function KMAlarmData()
+		{
+			window.location ="kingview_alarmdata_page.html";
+		}
+
+		//系统设置
+		function KMSystermConfig()
+		{
+			window.location ="kingview_setting_page.html";
+		}
+		</script>
+
+		<style type="text/css">
+		body{margin: 0;padding: 0;}
+		*{margin: 0;padding: 0}
+		.footer .ui-btn .ui-btn-inner{ padding-top:60px; }
+		.footer .ui-btn .ui-icon{width:24px;height:24px;}
+		</style>
+
+		<script language=javascript>
+			if (screen.width < 800)
+			{
+				document.write('<link rel=stylesheet type="text/css" href="./js/css800.css">')
+			}
+			else
+			{
+				document.write('<link rel=stylesheet type="text/css" href="./js/css1024.css">')
+			}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="setting_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<h1 style="padding-top:20px;">系统设置</h1>
+			</div>
+
+			<div class="fieldcontain">
+				<button id="KMConfigBtn" onclick="LoginInfo()"><img src="../images/LoginInfo.png" id="KMConfigImg" width="30" height="30" ><span id="KMConfigSpan">登录信息</span></button>
+				<button id="KMConfigBtn" onclick="ServerConfig()"><img src="../images/ServerConfig.png" id="KMConfigImg" width="30" height="30" ><span id="KMConfigSpan">服务器配置</span></button>
+				<button id="KMConfigBtn" onclick="AlarmConfig()"><img src="../images/AlarmConfig.png" id="KMConfigImg" width="30" height="30" ><span id="KMConfigSpan">报警消息配置</span></button>
+				<button id="KMConfigBtn" onclick="About()"><img src="../images/About.png" id="KMConfigImg" width="30" height="30" ><span id="KMConfigSpan">关于组态王</span></button>
+				<button id="KMLogOff" onclick="LogOut()">退出登录</button>
+			</div>
+
+			<div data-role="footer" id="KMFooter" data-position="fixed" data-tap-toggle="false">
+				<ul id="Navi">
+					<li><a onclick="KMRealtimeData()"><img src="../images/realtimedata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">实时数据</span></a></li>
+					<li><a onclick="KMHistoryData()"><img src="../images/historydata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">历史数据</span></a></li>
+					<li><a onclick="KMAlarmData()"><img src="../images/alarmdata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">报警数据</span></a></li>
+					<li class="active"><a onclick="KMSystermConfig()"><img src="../images/setting_selected.png" width="30" height="30" ><span style="color:#D43C33;font-size: 12px">设置</span></a></li>
+				</ul>
+			</div>
+		</div>
+	</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/jquery-easyui-1.4.3/themes/default/easyui.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/jquery-easyui-1.4.3/themes/icon.css">
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.3.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery-easyui-1.4.3/jquery.easyui.min.js"></script>
+
+		<style type="text/css">
+		#middle{width: 100%;height: 80px;position: relative;}
+		#button{width: 25%;float: left;position: absolute;left: 3%}
+		#button1{width: 25%;float: left;position: absolute;left: 34%}
+		#button2{width: 25%;float: left;position: absolute;left: 65%}
+		</style>
+
+		<script type="text/javascript">
+
+		var datasourcename;
+		var dbname;
+		var g_userhandle;
+		var g_publickey;
+		var editIndex = undefined;
+		var ipfalse = 0;
+		$(document).on("pageinit", "#pageone", function() {
+
+		});
+
+		window.onload = function()
+		{
+			g_userhandle = window.sessionStorage.userhandle;
+			g_publickey = window.sessionStorage.publickey;
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			LoadServerInfo();
+		}
+
+		function LoadServerInfo()
+		{
+			document.getElementById("tableid").style.display = "";
+			resultHtml = table(localStorage.serverJsonString);
+			if(localStorage.serverJsonString=="")
+			{
+				$('#dg').datagrid('deleteRow',0);
+			}
+		}
+
+		function PreviewPage()
+		{
+			SaveServerInfo();
+			if(ipfalse == 1)
+			{
+				return;
+			}
+			if (window.localStorage.PrePage == "settingPage")
+			{
+				window.location ="kingview_setting_page.html";
+				return;
+			}
+
+			var rows = $("#dg").datagrid('getSelected');
+			if (rows == null)
+			{
+				alert("请选择一个服务器！");
+				return;
+			}
+			var ipAddress  = rows.b;
+			if (ipAddress == "")
+			{
+				alert("ip地址不能为空！");
+				return;
+			}
+			var serverPort = rows.c;
+			if (serverPort == "")
+			{
+				alert("端口不能为空！");
+				return;
+			}
+			if(ipfalse == 0)
+			{
+				window.sessionStorage.serverIP = ipAddress;
+				window.sessionStorage.serverPort = serverPort;
+				localStorage.save_servername = ipAddress;
+				localStorage.save_serverport = serverPort;
+				window.location = "../login.html";
+			}
+			else if(ipfalse == 1)
+			{
+				return;
+			}
+		}
+
+		function endEditing()
+		{
+			if (editIndex == undefined){return true;}
+			if ($('#dg').datagrid('validateRow', editIndex))
+			{
+				var ed = $('#dg').datagrid('getEditor', {index:editIndex,field:'a'});
+				var productname = $(ed.target).combobox('getText');
+				$('#dg').datagrid('getRows')[editIndex]['productname'] = productname;
+				$('#dg').datagrid('endEdit', editIndex);
+				editIndex = undefined;
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+		function onClickRow(index)
+		{
+			if (editIndex != index)
+			{
+				if (endEditing())
+				{
+					$('#dg').datagrid('selectRow', index)
+						.datagrid('beginEdit', index);
+					editIndex = index;
+				}
+				else
+				{
+					$('#dg').datagrid('selectRow', editIndex);
+				}
+			}
+		}
+
+		function table(JSONformat_PGDatas)
+		{
+			var tdata_str = '';
+			var i, j;
+			var serverList = JSONformat_PGDatas.split(':');
+			var rows_num = serverList.length;
+			tdata_str = '{"total":'+rows_num+',"rows":[';
+			var iRowSel = -1;
+			for(var i=0;i<rows_num;i++)
+			{
+				tdata_str = tdata_str +"{";
+				var cols = ["a","b","c"];
+				var serverInfoArr = serverList[i].split(',');
+				for(j=0;j<serverInfoArr.length;j++)
+				{
+					var filedname = cols[j];
+					tdata_str = tdata_str + '"' + filedname + '":"' +serverInfoArr[j] +'"';
+					if (serverInfoArr[j] == window.sessionStorage.serverIP && serverInfoArr[j+1] == window.sessionStorage.serverPort) //modify by shuai.qiao Bug14263
+					{
+						iRowSel = i;
+					}
+					if(j!=serverInfoArr.length-1)
+					{
+						tdata_str=tdata_str+",";
+					}
+				}
+				tdata_str = tdata_str +"}";
+				if(i!=rows_num-1)
+					tdata_str = tdata_str + ',';
+			}
+
+			tdata_str = tdata_str + "]}";
+			var tdata_obj = JSON.parse(tdata_str);
+			$('#dg').datagrid({
+				data:tdata_obj,
+				remoteSort:false,
+				fitColumns: true,
+				singleSelect: true,
+				columns:  [[
+					{field:'ck',title:'',width:100,align:'center',checkbox:true},
+					{field:'a',title:'服务器名',width:100,align:'center',editor:'textbox'},
+					{field:'b',title:'IP地址/域名',width:100,align:'center',editor:'textbox'},
+					{field:'c',title:'端口',width:100,align:'center',editor:{type:'numberbox', options:{min:0,max:65535} } },
+				]],
+			});
+
+			if (iRowSel != -1)
+			{
+				$('#dg').datagrid('selectRow', iRowSel)
+			}
+		}
+
+		//增加服务器
+		function appendServerInfo()
+		{
+			$('#dg').datagrid('appendRow',{ck:'',a:"",b:"",c:""});
+			$('#dg').datagrid('endEdit', editIndex);
+			editIndex = $('#dg').datagrid('getRows').length-1;
+			$('#dg').datagrid('selectRow', editIndex)
+				.datagrid('beginEdit', editIndex);
+		}
+
+		//删除服务器
+		function DeleteServerInfo(dg)
+		{
+			var rowCount = $("#dg").datagrid('getRows').length;
+			if(rowCount == 1)
+			{
+				alert("服务器列表需至少包含一条记录！");
+				return;
+			}
+			var rows = $("#dg").datagrid('getSelected');
+			if(window.sessionStorage.userhandle != undefined)
+			{
+				if(rows['b'] == window.sessionStorage.serverIP && rows['c'] == window.sessionStorage.serverPort)
+				{
+					alert("当前服务器不能被删除！");
+					return;
+				}
+			}
+
+			var deleteindex = $("#dg").datagrid('getRowIndex',rows);
+			$("#dg").datagrid('deleteRow',deleteindex);
+			editIndex = undefined;
+			return;
+		}
+
+		//保存服务器
+		function SaveServerInfo(dg)
+		{
+			var rows = $("#dg").datagrid('getSelected');
+			$("#dg").datagrid('acceptChanges');
+			var serverLists = $('#dg').datagrid('getRows');
+			var allServerInfo="";
+			var IPArray=new Array();
+			for (var iRowIdx = 0; iRowIdx < serverLists.length; ++iRowIdx)
+			{
+				var serverInfo;
+				var ipAddress = serverLists[iRowIdx].b ;
+				var re=/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/;
+				if (re.test(ipAddress))
+				{
+					//IP格式验证，必须由四个且不能大于255的数字组成
+					var exp=/^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$/;
+					var reg = ipAddress.match(exp);
+					if(reg==null)
+					{
+						alert("ip地址格式不正确！");
+						var EditIndex= $("#dg").datagrid('getRowIndex',rows);
+						$("#dg").datagrid('beginEdit',EditIndex);
+						ipfalse = 1;
+						return;
+					}
+					else
+					{
+						ipfalse = 0;
+					}
+				}
+				var port = serverLists[iRowIdx].c ;
+				var ipc = ipAddress + ":" + port ;
+				IPArray[iRowIdx] = ipc ;
+
+				var serverPort = serverLists[iRowIdx].c;
+				if (serverPort == "")
+				{
+					alert("端口不能为空！");
+					editIndex = undefined;
+					return;
+				}
+
+				allServerInfo = allServerInfo + serverLists[iRowIdx].a + "," + serverLists[iRowIdx].b + "," + serverLists[iRowIdx].c;
+				if(iRowIdx != serverLists.length - 1)
+				{
+					allServerInfo = allServerInfo + ":";
+				}
+			}
+
+			var s = IPArray.join(",")+",";
+			for(var i=0;i<IPArray.length;i++)
+			{
+				var ss  = s.replace(IPArray[i]+",","");
+				if(s.replace(IPArray[i]+",","").indexOf(IPArray[i]+",")>-1)
+				{
+					ipfalse = 1;
+					$("#dg").datagrid('selectRow',i);
+					alert("IP地址或域名不能重复！");
+					editIndex = undefined;
+					return;
+				}
+			}
+
+			localStorage.serverJsonString = allServerInfo;
+			editIndex = undefined;
+			return;
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="serverconfig_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">服务器配置</h1>
+			</div>
+
+			<div id="middle">
+				<div data-role="content" id="button">
+					<button style="font-family:Droid Sans Fallback; font-weight:normal; font-size:16px;" onclick="appendServerInfo()">增加</button>
+				</div>
+
+				<div data-role="content" id="button1">
+					<button style="font-family:Droid Sans Fallback; font-weight:normal; font-size:16px;" onclick="DeleteServerInfo()">删除</button>
+				</div>
+
+				<div data-role="content" id="button2">
+					<button style="font-family:Droid Sans Fallback; font-weight:normal; font-size:16px;" onclick="SaveServerInfo()">保存</button>
+				</div>
+			</div>
+
+			<div style="margin:45px 0 10px 10px;">
+				<p>服务器列表：</p>
+			</div>
+
+			<div id="tableid" style="margin-left:10px;padding:10px;width:90%;overflow-y:scroll;border: 1px solid black;">
+				<table id="dg" class="easyui-datagrid" title="" style="width:95%;height:auto;"
+					data-options="
+					iconCls: 'icon-edit',
+					singleSelect: true,
+					fitColumns:true,
+					url: 'datagrid_data1.json',
+					method: 'get',
+					onClickRow: onClickRow
+				">
+				<thead>
+					<tr>
+						<th data-options="field:'ck',width:50,checkbox:true"></th>
+						<th data-options="field:'a',width:50,align:'center',editor:'textbox'">服务器名</th>
+						<th data-options="field:'b',width:50,align:'center',editor:'textbox'">IP地址</th>
+						<th data-options="field:'c',width:50,align:'center',editor:'numberbox',max:65535">端口</th>
+					</tr>
+				</thead>
+				</table>
+			</div>
+		</div>
+	</body>
+</html>

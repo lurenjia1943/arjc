@@ -1,0 +1,218 @@
+<<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+
+		<script type="text/javascript" src="../js/kmresultjsonparse.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+		<style type="text/css">
+		.ui-title-css
+		{
+			width:95%;
+			float:right;
+		}
+		</style>
+
+		<script type="text/javascript">
+		window.onload = function()
+		{
+			var showType = window.sessionStorage.ShowType;
+			if (showType & 1)
+			{
+				var titleName = window.sessionStorage.TitleName;
+				$('input:checkbox[name="showTitle"]').attr("checked",true).checkboxradio("refresh");
+				$("#titleName").val(titleName);
+			}
+			else
+			{
+				$('input:checkbox[name="showTitle"]').attr("checked",false).checkboxradio("refresh");
+				$('input:text[name="titleName"]').attr("readonly",false);
+			}
+
+			chkVal = document.getElementById("showLegend");
+			if (showType & 2)
+			{
+				$('input:checkbox[name="showLegend"]').attr("checked",true).checkboxradio("refresh");
+			}
+			else
+			{
+				$('input:checkbox[name="showLegend"]').attr("checked",false).checkboxradio("refresh");
+			}
+
+			if (showType & 4)
+			{
+				$('input:checkbox[name="showCursor"]').attr("checked",true).checkboxradio("refresh");
+			}
+			else
+			{
+				$('input:checkbox[name="showCursor"]').attr("checked",false).checkboxradio("refresh");
+			}
+
+			if (showType & 8)
+			{
+				$('input:checkbox[name="showTimeAxis"]').attr("checked",true).checkboxradio("refresh");
+			}
+			else
+			{
+				$('input:checkbox[name="showTimeAxis"]').attr("checked",false).checkboxradio("refresh");
+			}
+
+			if (showType & 16)
+			{
+				$('input:checkbox[name="showValueAxis"]').attr("checked",true).checkboxradio("refresh");
+			}
+			else
+			{
+				$('input:checkbox[name="showValueAxis"]').attr("checked",false).checkboxradio("refresh");
+			}
+			$("input[type=checkbox]").checkboxradio();
+		}
+
+		function PreviewPage()
+		{
+			var iShowTitle = 1;			//	显示标题
+			var iShowLegand = 2;		//	显示图例
+			var iShowCursor = 4;		//	显示游标
+			var iShowTimeAxis = 8;		//	显示时间轴
+			var iShowValueAxis = 16;	//	显示数值轴
+			var iShowType = 0;
+			var titleObj = document.getElementById("titleName");
+			var titleName = titleObj.value;
+			var chkVal = $('input:checkbox[name="showTitle"]:checked').val();
+			if (chkVal=="on") {
+				iShowType += iShowTitle;
+				if (titleName == "")
+				{
+					alert("标题名称不能为空！");
+					return;
+				}
+				if(titleName.length > 12)
+				{
+					alert("标题名称不能超过12个字符！");
+					return;
+				}
+				window.sessionStorage.TitleName = titleName;
+			}
+			chkVal = $('input:checkbox[name="showLegend"]:checked').val();
+			if (chkVal=="on") {
+				iShowType += iShowLegand;
+			}
+			chkVal = $('input:checkbox[name="showCursor"]:checked').val();
+			if (chkVal=="on") {
+				iShowType += iShowCursor;
+			}
+			chkVal = $('input:checkbox[name="showTimeAxis"]:checked').val();
+			if (chkVal=="on") {
+				iShowType += iShowTimeAxis;
+			}
+			chkVal = $('input:checkbox[name="showValueAxis"]:checked').val();
+			if (chkVal=="on") {
+				iShowType += iShowValueAxis;
+			}
+
+			window.sessionStorage.ShowType = iShowType;
+			window.location = "kingview_historydata_page.html";
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="historytrendproperty_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">属性设置</h1>
+			</div>
+
+			<div class="fieldcontain" id="ShowTitle">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">标题</label>
+						</td>
+
+						<td>
+							<select id="Title" data-role="slider" onchange="ShowTitleChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="fieldcontain" id="ShowLegend">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px"">图例</label>
+						</td>
+
+						<td>
+							<select id="Title" data-role="slider" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="fieldcontain" id="showCursor">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">游标</label>
+						</td>
+
+						<td>
+							<select id="Title" data-role="slider" onchange="showCursorChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="fieldcontain" id="showTimeAxis">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">时间轴</label>
+						</td>
+
+						<td>
+							<select id="Title" data-role="slider" onchange="showYAxisChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="fieldcontain" id="showValueAxis">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">数值轴</label>
+						</td>
+
+						<td>
+							<select id="Title" data-role="slider" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+	</body>
+</html>

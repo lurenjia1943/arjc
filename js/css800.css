@@ -1,0 +1,11 @@
+#up_down{ font-size: 4vw;}
+h1{font-weight:normal;}
+#login { font-size: 5.5vw;}
+#user_name{width:36%;}
+.adaptive_box {width:100%;height:width*0.45;font-size: 4vw;}
+.img_K{width:100%; height:30%}
+.big_login{width:80%;height:50%;margin-left:10%;align:center;}
+.auto_login{float:left;width:36%;margin-left:16%}
+.save_password{float:right;width:36%;margin-right:10%}
+.check_font{font-size:2.5vw;}
+table{width:85%;margin-left:6%;align:center}

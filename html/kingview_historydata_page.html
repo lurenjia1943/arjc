@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="./../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+		<link rel="stylesheet" type="text/css" href="./../thirdpart/easyui/default/easyui.css"/>
+		<link rel="stylesheet" type="text/css" href="./../thirdpart/easyui/icon.css" />
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse.js"></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_history.js"></script>
+		<script type="text/javascript" src="../thirdpart/html2canvas/html2canvas.js"></script>
+		<script type="text/javascript" src="../thirdpart/echarts-2.2.7/echarts-all.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+		<style type="text/css">
+		tr.css1 td {
+			border-style: solid;
+			border-width: 0px;
+			border-color: #C1DAD7;
+			font-weight: bold;
+			font-size: 12pt;
+			color: #000066;
+			height: 12%;
+			text-align: left;
+			background-color:#C0C0C0;
+		}
+		tr.css2 td {
+			border-style: solid;
+			border-width: 1px;
+			border-color: #C1DAD7;
+			background-color:#D0D0FF;
+			font-weight: bold;
+			font-size: 12pt;
+			color: #000066;
+			height: 12%;
+			text-align: left;
+		}
+		body{margin: 0;padding: 0;}
+		*{margin: 0;padding: 0}
+		</style>
+
+		<script>
+		var alarmIndex = 0;
+		var g_showmessage;
+		var g_beep;
+		var g_vibration;
+		var IntervalTime = 5;
+		var g_selectAlarmGP = "RootNode";
+		var g_stationName = "local";
+		var g_vargroupList = [];
+		var g_selectedVarGroup;
+		var g_userhandle;
+		var g_publickey;
+		var g_HistoryTrend;
+		var g_TrendQueryConfig = [];		//查询条件信息
+		var g_ShowType;						//显示信息
+		var g_ReportQueryConfig;
+		var g_ReportDiv;
+		var g_StatisticType = 4;
+		var g_HistSelTagNames = [];
+
+		$(document).on("pageinit", "#historydata_page", function()
+		{
+			g_userhandle = window.sessionStorage.userhandle;
+			g_publickey = window.sessionStorage.publickey;
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+		});
+
+		window.onload=function()
+		{
+			//加载实时数据变量组信息
+			LoadVarGroupInfo();
+		
+			//初始化历史数据TAB页
+			InitHistoryDataTab();
+
+			//刷新历史数据
+			RefreshHistoryData();
+			
+			//检测设备
+			var IsMobile = detectOS();
+			if(IsMobile == true)
+			{
+				var CordovaHead = document.getElementsByTagName("head")[0];
+				var CordovaScript = document.createElement("script");
+				CordovaScript.type = "text/javascript";
+				CordovaScript.src = "../cordova.js";
+				CordovaHead.appendChild(CordovaScript);
+
+				var IndexHead = document.getElementsByTagName("head")[0];
+				var IndexScript = document.createElement("script");
+				IndexScript.type = "text/javascript";
+				IndexScript.src = "../js/index.js";
+				IndexHead.appendChild(IndexScript);
+
+				g_showmessage = window.sessionStorage.g_showmessage;
+				g_showmessageinfo = window.sessionStorage.g_showmessageinfo;
+				g_beep = window.sessionStorage.g_beep;
+				g_vibration = window.sessionStorage.g_vibration;
+				if(g_showmessage == "true")
+				{
+					setInterval("OnAlarmNotify()",3000);
+				}
+			}
+		}
+
+		//初始化历史数据TAB页
+		function InitHistoryDataTab()
+		{
+			var windowWidth = document.body.clientWidth;
+			var wrap = document.getElementById('wrap');
+			var tabClick = wrap.querySelectorAll('.tabClick')[0];
+			var tabLi = tabClick.getElementsByTagName('li');
+
+			var tabBox =  wrap.querySelectorAll('.tabBox')[0];
+			var tabList = tabBox.querySelectorAll('.tabList');
+			var lineBorder = wrap.querySelectorAll('.lineBorder')[0];
+			var lineDiv = lineBorder.querySelectorAll('.lineDiv')[0];
+
+			var tar = 0;
+			var endX = 0;
+			var dist = 0;
+
+			tabBox.style.overflow='hidden';
+			tabBox.style.position='absolute';
+			tabBox.style.width=windowWidth*tabList.length+"px";
+			tabBox.style.height = 500+"px";
+
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				  tabList[i].style.width=windowWidth+"px";
+				  tabList[i].style.float='left';
+				  tabList[i].style.float='left';
+				  tabList[i].style.padding='0';
+				  tabList[i].style.margin='0';
+				  tabList[i].style.verticalAlign='top';
+				  tabList[i].style.display='table-cell';
+			}
+
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				tabLi[i].start = i;
+				tabLi[i].onclick = function(){
+					var star = this.start;
+					var HistoryType = window.sessionStorage.historytype;
+					if(typeof HistoryType != "undefined")
+					{
+						if(HistoryType == "HistoryReport")
+						{
+							if(star == 1)
+								return;
+						}
+						else
+						{
+							if(star == 0)
+								return;
+						}
+					}
+					
+					for(var i = 0 ;i<tabLi.length; i++ ){
+						tabLi[i].className='';
+					};
+					tabLi[star].className='active';
+					init.lineAnme(lineDiv,windowWidth/tabLi.length*star)
+					init.translate(tabBox,windowWidth,star);
+					endX= -star*windowWidth;
+					
+					if(star == 0)
+					{
+						KMHistoryGraph();
+					}
+					if(star == 1)
+					{
+						KMHistoryReport();
+					}
+				}
+			}
+
+			tabBox.addEventListener('touchstart',chstart,false);
+			//按下
+			function chstart(ev){
+				ev.preventDefault;
+				var touch = ev.touches[0];
+				tar=touch.pageX;
+				tabBox.style.webkitTransition='all 0s ease-in-out';
+				tabBox.style.transition='all 0s ease-in-out';
+			};
+		}
+
+		function OnTab(star){
+			var windowWidth = document.body.clientWidth;
+			var wrap = document.getElementById('wrap');
+			var tabClick = wrap.querySelectorAll('.tabClick')[0];
+			var tabLi = tabClick.getElementsByTagName('li');
+
+			var tabBox =  wrap.querySelectorAll('.tabBox')[0];
+			var tabList = tabBox.querySelectorAll('.tabList');
+			var lineBorder = wrap.querySelectorAll('.lineBorder')[0];
+			var lineDiv = lineBorder.querySelectorAll('.lineDiv')[0];
+
+			if(star<0){
+				star=0;
+			}else if(star>=tabLi.length){
+				star=tabLi.length-1
+			}
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				tabLi[i].className='';
+			};
+
+			tabLi[star].className='active';
+			init.translate(tabBox,windowWidth,star);
+			init.lineAnme(lineDiv,windowWidth/tabLi.length*star);
+		};
+
+		var init = {
+			translate:function(obj,windowWidth,star){
+				obj.style.webkitTransform='translate3d('+-star*windowWidth+'px,0,0)';
+				obj.style.transform='translate3d('+-star*windowWidth+',0,0)px';
+				obj.style.webkitTransition='all 0.3s ease-in-out';
+				obj.style.transition='all 0.3s ease-in-out';
+			},
+			touchs:function(obj,windowWidth,tar,distance,endX){
+				obj.style.webkitTransform='translate3d('+(distance+endX)+'px,0,0)';
+				obj.style.transform='translate3d('+(distance+endX)+',0,0)px';
+			},
+			lineAnme:function(obj,stance){
+				obj.style.webkitTransform='translate3d('+stance+'px,0,0)';
+				obj.style.transform='translate3d('+stance+'px,0,0)';
+				obj.style.webkitTransition='all 0.1s ease-in-out';
+				obj.style.transition='all 0.1s ease-in-out';
+			},
+			back:function(obj,windowWidth,tar,distance,endX,time){
+				obj.style.webkitTransform='translate3d('+(distance+endX)+'px,0,0)';
+				obj.style.transform='translate3d('+(distance+endX)+',0,0)px';
+				obj.style.webkitTransition='all '+time+'s ease-in-out';
+				obj.style.transition='all '+time+'s ease-in-out';
+			},
+		}
+
+		//加载历史数据变量组信息
+		function LoadVarGroupInfo()
+		{
+			//加载变量组
+			var VarGroupOption;
+			var HistoryVarGroupList = window.sessionStorage.HistoryVarGroupList;
+			if(typeof HistoryVarGroupList == "undefined")
+			{
+				var AllVarGroupArray = EnumVarGroupFromKingView();
+				if(AllVarGroupArray == "")
+				{
+					return;
+				}
+
+				//设置变量组值
+				var VarGroupIndex = 0;
+				for (var key in AllVarGroupArray)
+				{
+					var VarGroupName = key;
+					g_vargroupList[VarGroupIndex] = VarGroupName;
+					VarGroupOption += "<option value=" + VarGroupIndex + ">" + VarGroupName + "</option>";
+					VarGroupIndex++;
+				}
+			}
+			else
+			{
+				//设置变量组值
+				var AllVarGroupArray = HistoryVarGroupList.split(",");
+				if(AllVarGroupArray == "")
+				{
+					return;
+				}
+
+				for (var i = 0; i < AllVarGroupArray.length; i++)
+				{
+					var VarGroupName = AllVarGroupArray[i];
+					g_vargroupList[i] = VarGroupName;
+					VarGroupOption += "<option value=" + i + ">" + VarGroupName + "</option>";
+				}
+			}
+			$("#vargroup").html(VarGroupOption);
+			window.sessionStorage.HistoryVarGroupList = g_vargroupList;
+
+			//设置当前变量组
+			g_selectedVarGroup = window.sessionStorage.HistorySelectedVarGroup;
+			if(typeof g_selectedVarGroup == "undefined")
+			{
+				g_selectedVarGroup = 0;
+				window.sessionStorage.HistorySelectedVarGroup = g_selectedVarGroup;
+			}
+			var VarGroupSelect = $("select#vargroup");
+			VarGroupSelect[0].selectedIndex = g_selectedVarGroup;
+			VarGroupSelect.selectmenu("refresh");
+		}
+
+		//加载配置信息
+		function LoadConfigInfo()
+		{
+			var HistoryType = window.sessionStorage.historytype;
+			if(typeof HistoryType != "undefined")
+			{
+				if(HistoryType == "HistoryReport")
+				{
+					LoadReportProperty();
+				}
+				else
+				{
+					LoadGraphProperty();
+				}
+			}
+			else
+			{
+				LoadGraphProperty();
+			}
+		}
+		
+		//获取历史数据图表属性
+		function LoadGraphProperty()
+		{
+			//获取历史图表属性
+			var VarGroupIndex = window.sessionStorage.HistorySelectedVarGroup;
+			var object = window.sessionStorage.HistoryGraphConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var HistoryConfigInfo = eval(object);
+				for(var i = 0; i < HistoryConfigInfo.length; i++)
+				{
+					if(HistoryConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{						
+						//获取配置变量
+						var tagNameList = HistoryConfigInfo[i].TagNameList;
+						g_HistSelTagNames = tagNameList.split(",");
+						
+						//获取配置信息
+						var TrendQueryInfo = HistoryConfigInfo[i].TrendQueryInfo;
+						var JsonObject = JSON.parse(TrendQueryInfo);
+						var startTime = JsonObject["starttime"];
+						var endTime = JsonObject["endtime"];
+						var queryType = JsonObject["querytype"];
+						
+						var JsonString_QueryInfo = KmCreateJsonString_Condition_Industry(startTime, endTime, queryType);
+						g_TrendQueryConfig = JsonString_QueryInfo;
+						break;
+					}
+				}
+			}
+			else
+			{						
+				//设置默认查询方式 -- 默认近一小时
+				var QueryTypeInfo;
+				var QueryType = "SpecificQuery" //指定方式查询
+				var QueryIndex = 0; //近一小时
+				QueryTypeInfo = QueryType + "|" + QueryIndex;
+				
+				//设置默认查询条件 -- 默认近一小时
+				var d = new Date();
+				var endTime = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate() + " " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+				d.setHours(d.getHours()-1);
+				var startTime = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate() + " " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+				
+				var JsonString_QueryInfo = KmCreateJsonString_Condition_Industry(startTime, endTime, "eigenQuery");
+				g_TrendQueryConfig = JsonString_QueryInfo;
+				var jsonObject = JSON.parse(JsonString_QueryInfo);
+				var TrendQueryInfo = JSON.stringify(jsonObject);
+			
+				var jsonstr = '[';   
+				for (var i = 0; i < g_vargroupList.length; i++)
+				{
+					//设置所有变量组默认配置信息
+					g_tagNameList = EnumTagNameListByVarGroupIndex(i);
+					
+					//变量个数限定8个
+					var SelectVarCount = 8;
+					var TagNameList = [];
+					if(g_tagNameList.length > SelectVarCount)
+					{
+						for(var j = 0; j < SelectVarCount; j++)
+						{
+							TagNameList.push(g_tagNameList[j]);
+						}
+					}
+					else
+					{
+						TagNameList = g_tagNameList;
+					}
+				
+					//设置当前变量组默认配置变量列表
+					if(i == g_selectedVarGroup)
+					{
+						g_HistSelTagNames = TagNameList;
+					}
+					
+					jsonstr += '{';  
+					jsonstr += "VarGroupIndex:'" + i + "',";
+					jsonstr += "TagNameList:'" + TagNameList+ "',";  
+					jsonstr += "QueryTypeInfo:'" + QueryTypeInfo+ "',"; 
+					jsonstr += "TrendQueryInfo:'" + TrendQueryInfo+ "'";  
+					jsonstr += '}'  
+					jsonstr += ','  
+				}  
+				jsonstr = jsonstr.substring(0, jsonstr.length - 1);  
+				jsonstr += ']';  
+				window.sessionStorage.HistoryGraphConfigInfo = jsonstr;	
+			}
+			
+			g_tagNameList = EnumTagNameListByVarGroupIndex(VarGroupIndex);
+			window.sessionStorage.HistoryCurVarGroupTagList = g_tagNameList;
+		}
+		
+		//获取历史数据报表属性
+		function LoadReportProperty()
+		{	
+			//获取历史报表属性
+			var VarGroupIndex = window.sessionStorage.HistorySelectedVarGroup;
+			var object = window.sessionStorage.HistoryReportConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var HistoryConfigInfo = eval(object);
+				for(var i = 0; i < HistoryConfigInfo.length; i++)
+				{
+					if(HistoryConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{
+						//获取配置变量
+						var tagNameList = HistoryConfigInfo[i].TagNameList;
+						g_HistSelTagNames = tagNameList.split(",");
+						
+						//获取统计方式
+						g_StatisticType = HistoryConfigInfo[i].StatisticType;
+						
+						//获取配置信息
+						var ReportQueryInfo = HistoryConfigInfo[i].ReportQueryInfo;
+						var JsonObject = JSON.parse(ReportQueryInfo);
+						var startTime = JsonObject["starttime"];
+						var endTime = JsonObject["endtime"];
+						var queryType = JsonObject["querytype"];
+						var queryInterval = JsonObject["interval"];
+						
+						var JsonString_QueryInfo = KmCreateJsonString_Condition_TimeInterval(startTime,endTime, queryType, queryInterval);
+						g_ReportQueryConfig = JsonString_QueryInfo;
+						break;
+					}
+				}
+			}
+			else
+			{
+				//设置默认查询方式 -- 默认日报表
+				var currDayDateTime = new Date().Format("yyyy-MM-dd");
+				var QueryTypeInfo;
+				var QueryType = "dayReport"; //指定方式查询
+				QueryTypeInfo = QueryType + "|" + currDayDateTime;
+				
+				//设置默认统计方式 -- 最大、最小、平均及总计
+				var StatisticType = 60;
+				
+				//设置默认查询条件 -- 默认日报表
+				var dayVec = currDayDateTime.split("-");
+				var monthTime = new Date().Format("hh:mm:ss");
+				var timeVec = monthTime.split(":");		
+				startTime = dayVec[0] + "-" + dayVec[1] + "-" + dayVec[2] + " " + 00 + ":" + 00 + ":" + 00;
+				
+				var DateTime = new Date();
+				if(Date.parse(dayVec[0]+"/"+dayVec[1]+"/"+dayVec[2]) ==
+					Date.parse(DateTime.getFullYear()+"/"+(DateTime.getMonth() + 1) +"/"+DateTime.getDate()))
+				{
+					endTime = dayVec[0] + "-" + dayVec[1] + "-" + dayVec[2] + " " + timeVec[0] + ":" + 00 + ":" + 00;
+				}
+				else
+				{
+					endTime = dayVec[0] + "-" + dayVec[1] + "-" + dayVec[2] + " " + 23 + ":" + 00 + ":" + 00;
+				}
+				var queryType = "intervalQuery";
+				var queryInterval = 60*60;
+				var JsonString_QueryInfo = KmCreateJsonString_Condition_TimeInterval(startTime, endTime, queryType, queryInterval);
+				g_ReportQueryConfig = JsonString_QueryInfo;
+				var jsonObject = JSON.parse(JsonString_QueryInfo);
+				var ReportQueryInfo = JSON.stringify(jsonObject);
+			
+				var jsonstr = '[';   
+				for (var i = 0; i < g_vargroupList.length; i++)
+				{
+					//设置所有变量组默认配置信息
+					g_tagNameList = EnumTagNameListByVarGroupIndex(i);
+					
+					//变量个数限定10个
+					var SelectVarCount = 10;
+					var TagNameList = [];
+					if(g_tagNameList.length > SelectVarCount)
+					{
+						for(var j = 0; j < SelectVarCount; j++)
+						{
+							TagNameList.push(g_tagNameList[j]);
+						}
+					}
+					else
+					{
+						TagNameList = g_tagNameList;
+					}
+				
+					//设置当前变量组默认配置变量列表
+					if(i == g_selectedVarGroup)
+					{
+						g_HistSelTagNames = TagNameList;
+					}
+
+					jsonstr += '{';  
+					jsonstr += "VarGroupIndex:'" + i + "',";
+					jsonstr += "TagNameList:'" + TagNameList+ "',";  
+					jsonstr += "QueryTypeInfo:'" + QueryTypeInfo+ "',"; 
+					jsonstr += "StatisticType:'" + StatisticType+ "',"; 					
+					jsonstr += "ReportQueryInfo:'" + ReportQueryInfo + "'";
+					jsonstr += '}'  
+					jsonstr += ','  
+				}  
+				jsonstr = jsonstr.substring(0, jsonstr.length - 1);  
+				jsonstr += ']';  
+				window.sessionStorage.HistoryReportConfigInfo = jsonstr;	
+			}
+			
+			g_tagNameList = EnumTagNameListByVarGroupIndex(VarGroupIndex);
+			window.sessionStorage.HistoryCurVarGroupTagList = g_tagNameList;
+		}
+		
+		//检测设备
+		function detectOS()
+		{
+			var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+			var isOpera = userAgent.indexOf("Opera") > -1;
+			if ((userAgent.indexOf("Opera") > -1) 
+				|| (userAgent.indexOf("Firefox") > -1)
+				|| (userAgent.indexOf("Chrome") > -1)
+				|| (userAgent.indexOf("Safari") > -1)
+				|| (userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1)) 
+			{
+				return false;
+			}
+		
+			//平台、设备和操作系统
+			var system = {
+				win : false,
+				mac : false,
+				xll : false
+			};
+			//检测平台
+			var p = navigator.platform;
+			system.win = p.indexOf("Win") == 0;
+			system.mac = p.indexOf("Mac") == 0;
+			system.x11 = (p == "X11") || (p.indexOf("Linux") == 0);
+
+			//跳转语句
+			if(system.win||system.mac||system.xll)
+			{
+				//转向后台登陆页面
+				return false;
+			}
+			else
+			{
+				return true;
+			}
+		}
+		
+		//报警通知
+		function OnAlarmNotify()
+		{
+			var strJson = GetRTAlarmDataFromKVAction();
+			if(strJson == "")
+			{
+				return;
+			}
+				
+			var obj = JSON.parse(strJson);
+			if (obj != null)
+			{
+				if (obj.Body.records != null)
+				{
+					var AlarmArray = [];
+					for(var i = 0; i < obj.Body.records.length; i++)
+					{
+						AlarmArray.push(obj.Body.records[i][4]);
+					}
+
+					var CurDate = new Date;
+					if(g_showmessage == "true")
+					{
+						var AlarmCount = 0;
+						var AlarmMessage = "您有-条新报警，请查看！";
+						for(var i = 0; i < AlarmArray.length; i++)
+						{
+							var AlarmDate = new Date(AlarmArray[i]).getTime();
+							var TimeInterval = (CurDate.getTime() - AlarmDate)/1000;
+							if( TimeInterval > 0 && TimeInterval < IntervalTime )
+							{
+								AlarmCount++;
+							}
+						}
+
+						var MessageCount = AlarmCount.toString();
+						if(MessageCount > 0)
+						{
+							AlarmMessage = AlarmMessage.replace("-", MessageCount);
+							cordova.plugins.notification.local.schedule({
+								date: new Date(),
+								message: AlarmMessage,
+								badge: 1,
+								id: alarmIndex,
+								sound:'sub.caf',
+								at:null,
+								background:'app.background()',
+								foreground:'app.running()'
+							});
+
+							if(g_beep == "true")
+							{
+								navigator.notification.beep(2);
+							}
+
+							if(g_vibration == "true")
+							{
+								navigator.notification.vibrate(2000);
+							}
+						}
+						alarmIndex++;
+					}
+				}
+			}	
+		}
+		
+		//获取实时报警属性
+		function LoadRealtimeAlarmProperty()
+		{
+			//获取实时图表属性
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			var object = window.sessionStorage.AlarmRealtimeConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var AlarmRealtimeConfigInfo = eval(object);
+				for(var i = 0; i < AlarmRealtimeConfigInfo.length; i++)
+				{
+					if(AlarmRealtimeConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{									
+						//优先级
+						g_priority = AlarmRealtimeConfigInfo[i].Priority;
+						break;						
+					}
+				}
+			}
+		}
+		
+		//获取报警数据
+		function GetRTAlarmDataFromKVAction()
+		{
+			//获取实时报警属性
+			LoadRealtimeAlarmProperty();	
+			var DataSourceName = "KV3";
+			var CommandType = "realtimealarmdata";
+			var StationName = g_stationName;	
+			var GroupName = g_selectAlarmGP;
+			var Alarmtype = 1;
+			var Eventtype = 2;
+			var Priority = g_priority;
+			if(typeof Priority != "undefined")
+			{
+				if(Priority < 1 || Priority > 999)
+				{
+					alert("优先级：请输入1~999之间的数字！");
+					return;
+				}
+			}
+			else
+			{
+				//设置默认查询条件
+				Priority = 1;
+			}
+			
+			var VarGroupName = window.sessionStorage.AlarmVarGroupName;
+			if(typeof VarGroupName == "undefined")
+			{
+				return;
+			}
+
+			var RetJson = "";
+			var QueryCondition = KmCreateJsonString_Condition_RealAlarm(StationName,GroupName,VarGroupName,Alarmtype,Eventtype,Priority);
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetRealAlarmDatas(g_userhandle,DataSourceName,CommandType,QueryCondition,function(JsonString_Result_KVRTAlarmDatas)
+			{
+				if(typeof JsonString_Result_KVRTAlarmDatas == "object")
+				{
+					if(typeof JsonString_Result_KVRTAlarmDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KVRTAlarmDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KVRTAlarmDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						RetJson = JsonString_Result_KVRTAlarmDatas;
+					}
+				}
+			});
+			return RetJson;
+		}
+		
+		//通过变量组索引获取变量列表
+		function EnumTagNameListByVarGroupIndex(VarGroupIndex)
+		{
+			var VarNameArray = [];
+			var AllVarGroupArray = EnumVarGroupFromKingView();
+			var szVarName = "";
+			var iIndex = 0;
+			for (var key in AllVarGroupArray)
+			{
+				if(iIndex == VarGroupIndex)
+				{
+					szVarName += AllVarGroupArray[key];
+					szVarName += ";";
+					break;
+				}
+				iIndex++;
+			}
+			VarNameArray = szVarName.split(";");
+
+			for (i = VarNameArray.length - 1;  i >0; i--)
+			{
+				if (VarNameArray[i] == "")
+				{
+					VarNameArray.splice(i, 1);
+				}
+			}
+			return VarNameArray;
+		}
+
+		//变量组改变
+		function OnVarGroupChanged()
+		{
+			g_HistSelTagNames.length = 0;	
+			var VarGroupSelect = document.getElementById("vargroup").options;
+			var VarGroupIndex = VarGroupSelect.selectedIndex;
+			window.sessionStorage.HistorySelectedVarGroup = VarGroupIndex;
+
+			//刷新历史数据
+			RefreshHistoryData();
+		}
+
+		//刷新历史数据
+		function RefreshHistoryData()
+		{
+			//加载历史数据配置信息
+			LoadConfigInfo();
+		
+			//刷新界面
+			if(g_HistSelTagNames.length==0)
+			{
+				return;
+			}
+
+			var VarCount = g_HistSelTagNames.length;
+			var object = window.sessionStorage.historytype;
+			if(typeof object != "undefined")
+			{
+				if(object == "HistoryReport")
+				{
+					if (VarCount > 10)
+					{
+						alert("历史报表最多添加10个变量！");
+						return;
+					}
+					ShowHistoryReport();
+				}
+				else
+				{
+					if (VarCount > 8)
+					{
+						alert("历史曲线最多添加8个变量！");
+						return;
+					}
+					ShowHistoryTrend();
+				}
+			}
+			else
+			{
+				ShowHistoryTrend();
+				window.sessionStorage.historytype = "HistoryTrend";
+			}
+			var VarGroupSelect = document.getElementById("vargroup").options;
+			var VarGroupIndex = VarGroupSelect.selectedIndex;
+			window.sessionStorage.HistorySelectedVarGroup = VarGroupIndex;
+		}
+
+		//获取变量组
+		function EnumVarGroupFromKingView()
+		{
+			var DataSourceName = "KV2";
+			var CommandType = "enumvargroup";
+			var tagType = "historytagname";
+			var AllVarGroupArray = [];
+
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetAllTagNameFromDataSource(g_userhandle,DataSourceName,CommandType,tagType,function(Json_tag_nemes)
+			{
+				if(typeof Json_tag_nemes == "object")
+				{
+					if(typeof Json_tag_nemes.responseText != "undefined")
+					{
+						alert(Json_tag_nemes.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = Json_tag_nemes.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						var TagNameobj = JSON.parse(Json_tag_nemes);
+						AllVarGroupArray = TagNameobj.Body.VarGroup;
+					}
+				}
+			});
+			return AllVarGroupArray;
+		}
+
+		function KMHistoryGraph(){
+			window.sessionStorage.historytype = "HistoryTrend";
+			RefreshHistoryData();
+		}
+
+		function KMHistoryReport(){
+			window.sessionStorage.historytype = "HistoryReport";
+			RefreshHistoryData();
+		}
+
+		//历史趋势曲线显示
+		function ShowHistoryTrend()
+		{
+			//调用接口
+			var DataSourceName = "KV2";
+			var CommandType = "historydata";
+			var JsonString_Tags = KmCreateJsonString_Tags(g_HistSelTagNames);
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetHistoryDatas( g_userhandle,DataSourceName,CommandType,JsonString_Tags,g_TrendQueryConfig,function(JsonString_HistoryDatas)
+			{
+				if(typeof JsonString_HistoryDatas == "object")
+				{
+					if(typeof JsonString_HistoryDatas.responseText != "undefined")
+					{
+						alert(JsonString_HistoryDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					g_HistoryTrend = JsonString_HistoryDatas;
+					var ret = JsonString_HistoryDatas.split(":");
+
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					var obj = JSON.parse(JsonString_HistoryDatas);
+					if(obj.Body.records != null)
+					{
+						g_HistoryTrend = JsonString_HistoryDatas;
+						HistoryTrend();
+						OnTab(0);
+					}
+				}
+			});
+		}
+
+		//历史趋势曲线
+		function HistoryTrend()
+		{
+			document.getElementById("historyContainer").style.display='';
+			var myChart = echarts.init(document.getElementById('historyContainer'));
+
+			//获取标题信息
+			var titleName;
+			var legandName = [];
+			var dataTime = [];
+			var histDataNums = 0;
+			var histDatas = [];
+			var histSeries = [];
+			var bShowTitle = true;
+			var bShowXAxis = true;
+			var bShowYAxis = true;
+			var bShowCursor = true;
+			var bShowLegand = true;
+			var obj = JSON.parse(g_HistoryTrend);
+			if (obj != null)
+			{
+				g_ShowType = window.sessionStorage.ShowType;
+				if(typeof g_ShowType == "undefined")
+				{
+					g_ShowType = 31;
+				}
+				if (g_ShowType & 1) 	//显示标题
+				{
+					bShowTitle = true;
+				}
+				else
+				{
+					bShowTitle = false;
+				}
+				titleName = window.sessionStorage.TitleName;
+
+				for (var i = 0; i < obj.Body.tagNum; i++)
+				{
+					legandName[i] = obj.Body.records[i][0];
+				}
+				if (g_ShowType & 2) 	//显示图例
+				{
+					bShowLegand = true;
+				}
+				else
+				{
+					bShowLegand = false;
+				}
+
+				if (g_ShowType & 4) 	//显示游标
+				{
+					bShowCursor = true;
+				}
+				else
+				{
+					bShowCursor = false;
+				}
+
+				if (g_ShowType & 8)
+				{
+					bShowXAxis = true;
+				}
+				else
+				{
+					bShowXAxis = false;
+				}
+				if (g_ShowType & 16)
+				{
+					bShowYAxis = true;
+				}
+				else
+				{
+					bShowYAxis = false;
+				}
+
+				//填充日期信息
+				histDataNums = obj.Body.records[0][3].length;
+				if (histDataNums <= 0)
+				{
+					alert("无有效数据！");
+					return;
+				}
+				for (var i = 0; i < histDataNums; i++)
+				{
+					dataTime[i] =   obj.Body.records[0][3][i][2];
+				}
+
+				//填充数据
+				for (var i = 0; i < obj.Body.tagNum; i++)
+				{
+					histDatas[i] = [];
+					for (var j = 0; j < histDataNums; j++)
+					{
+						histDatas[i][j] = obj.Body.records[i][3][j][0];
+					}
+				}
+
+				for (var i = 0; i < obj.Body.tagNum; i++)
+				{
+					histSeries[i] = {name:legandName[i],type:'line',data:(function (){
+						var res = [];
+						for (var j = 0; j < histDataNums; j++)
+						{
+							 res.push(obj.Body.records[i][3][j][0]);
+						}
+						return res;
+					})()
+				}
+			};
+			}
+			var legandSpace =(legandName.length) *16 + 30;
+				option =
+				{
+					backgroundColor: 'rgba(255,255,255,1)',
+					title : {
+						show:bShowTitle,
+						text: titleName
+					},
+					tooltip : {
+						trigger: 'axis'
+					},
+					legend: {
+						y: '30',
+						orient:'vertical',
+						itemHeight: 16,
+						itemGap: 2,
+						x : 'right',
+						y : 'center',
+						show:bShowLegand,
+						data:legandName
+					},
+					grid:{
+						y:legandSpace,
+					},
+					toolbox: {
+						show : true,
+						feature : {
+							mark : {show: true},
+							magicType : {show: true, type: ['line', 'bar']},
+							restore : {show: false},
+							saveAsImage : {show: false}
+						}
+					},
+					tooltip:{
+						show: bShowCursor,
+						showContent: bShowCursor
+					},
+					calculable : true,
+					xAxis : [
+						{
+							type : 'category',
+							show :  bShowXAxis,
+							boundaryGap : false,
+							data:(function()
+							{
+								var res = [];
+								for (var i = 0; i < histDataNums; i++)
+								{
+									res.push(dataTime[i]);
+								}
+								return res;
+							})()
+						}
+					],
+					yAxis : [
+						{
+							show : bShowYAxis,
+								type : 'value',
+								axisLabel : {
+								formatter: '{value}'
+							}
+						}
+					],
+					series : histSeries
+				};
+
+			// 为echarts对象加载数据
+			myChart.setOption(option);
+		}
+
+		function ShowHistoryReport(KV71HistoryDatas)
+		{
+			//获取历史报表属性
+			g_ReportDiv = document.getElementById("reportdata");
+
+			//调用接口
+			var DataSourceName = "KV2";
+			var CommandType = "historydata";
+			var JsonString_Tags = KmCreateJsonString_Tags(g_HistSelTagNames);
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetHistoryDatas(g_userhandle,DataSourceName,CommandType,JsonString_Tags,g_ReportQueryConfig,function(JsonString_HistoryDatas)
+			{
+				if(typeof JsonString_HistoryDatas == "object")
+				{
+					if(typeof JsonString_HistoryDatas.responseText != "undefined")
+					{
+						alert(JsonString_HistoryDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_HistoryDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					var obj = JSON.parse(JsonString_HistoryDatas);
+					if(obj.Body.records != null)
+					{
+						g_ReportDiv.innerHTML = CreateReportHtmlInnerString(JsonString_HistoryDatas, g_StatisticType);
+						OnTab(1);
+					}
+				}
+			});
+		}
+
+		//历史数据配置
+		function KMHistoryDataSetting()
+		{
+			var object = window.sessionStorage.historytype;
+			if(typeof object != "undefined")
+			{
+				if(object == "HistoryReport")
+				{
+					window.location ="kingview_history_report_query.html";
+				}
+				else
+				{
+					window.location ="kingview_history_trend_query.html";
+				}
+			}
+			else
+			{
+				window.location ="kingview_history_trend_query.html";
+			}
+		}
+
+		//实时数据
+		function KMRealtimeData()
+		{
+			window.location ="kingview_realtimedata_page.html";
+		}
+
+		//历史数据
+		function KMHistoryData()
+		{
+			window.location ="kingview_historydata_page.html";
+		}
+
+		//报警数据
+		function KMAlarmData()
+		{
+			window.location ="kingview_alarmdata_page.html";
+		}
+
+		//系统设置
+		function KMSystermConfig()
+		{
+			window.location ="kingview_setting_page.html";
+		}
+		</script>
+
+		<script language=javascript>
+		if (screen.width < 800)
+		{
+			document.write('<link rel=stylesheet type="text/css" href="./js/css800.css">')
+		}
+		else
+		{
+			document.write('<link rel=stylesheet type="text/css" href="./js/css1024.css">')
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="historydata_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<table style="width:100%">
+					<tr align="center">
+						<td>
+							<select id="vargroup" data-native-menu="false" onchange="OnVarGroupChanged()">
+								<option>选择变量组</option>
+							</select>
+						</td>
+					
+						<td style="position:absolute;float:left;left:2%;margin-top:15px;">
+							<input type="image" id="KMSettingBtn" src="../images/setting.png" onclick="KMHistoryDataSetting()">
+						</td>
+
+						<td style="position:absolute;float:right;right:2%;margin-top:15px;">
+							<input type="image" id="KMRefreshBtn" src="../images/refresh.png" onclick="RefreshHistoryData()">
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="wrap" id="wrap">
+				<ul class="tabClick">
+					<li class="active">历史图表</li>
+					<li>历史报表</li>
+				</ul>
+
+				<div class="lineBorder">
+					<div class="lineDiv"></div>
+				</div>
+
+				<div class="container">
+					<div class="tabCon">
+						<div class="tabBox">
+							<div class="tabList">
+								<div data-role="fieldcontain">
+									<div id="historyContainer" name="historyContainer" style="width:100%;height:400px;"></div>
+								</div>
+							</div>
+
+							<div class="tabList">
+								<div data-role="fieldcontain">
+									<div id = "reportdataDiv" class="reportdataDiv" style="padding-left:2%;width:98%;height:400px;overflow:scroll">
+										<table data-role="table fieldcontain" id="reportdata" data-mode="columntoggle" class="ui-table ui-table-columntoggle ui-responsive"></table>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div data-role="footer" id="KMFooter" data-position="fixed" data-tap-toggle="false">
+				<ul id="Navi">
+					<li><a onclick="KMRealtimeData()"><img src="../images/realtimedata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">实时数据</span></a></li>
+					<li class="active"><a onclick="KMHistoryData()"><img src="../images/historydata_selected.png" width="30" height="30"><span style="color:#D43C33;font-size: 12px">历史数据</span></a></li>
+					<li><a onclick="KMAlarmData()"><img src="../images/alarmdata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">报警数据</span></a></li>
+					<li><a onclick="KMSystermConfig()"><img src="../images/setting_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">设置</span></a></li>
+				</ul>
+			</div>
+		</div>
+	</body>
+</html>

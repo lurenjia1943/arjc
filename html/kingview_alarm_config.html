@@ -1,0 +1,280 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/jquery-easyui-1.4.3/themes/default/easyui.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/jquery-easyui-1.4.3/themes/icon.css">
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+		<script type="text/javascript">
+		var g_showmessage;
+		var g_beep;
+		var g_vibration;
+		var g_userhandle;
+		var g_publickey;
+		$(document).on("pageinit", "#alarmconfig_page", function()
+		{
+			g_userhandle = window.sessionStorage.userhandle;
+			g_publickey = window.sessionStorage.publickey;
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+		});
+
+		window.onload = function()
+		{
+			var IsMobile = detectOS();
+			if(IsMobile == true)
+			{
+				var CordovaHead = document.getElementsByTagName("head")[0];
+				var CordovaScript = document.createElement("script");
+				CordovaScript.type = "text/javascript";
+				CordovaScript.src = "../cordova.js";
+				CordovaHead.appendChild(CordovaScript);
+
+				var IndexHead = document.getElementsByTagName("head")[0];
+				var IndexScript = document.createElement("script");
+				IndexScript.type = "text/javascript";
+				IndexScript.src = "../js/index.js";
+				IndexHead.appendChild(IndexScript);
+
+				if(window.sessionStorage.g_showmessage == "true")
+				{
+					g_showmessage = true;
+					var myswitch = $("#ShowMessage");
+					myswitch[0].selectedIndex = 1;
+					myswitch.slider("refresh");
+
+					$("#BeepNotify").show();
+					$("#VibrationNotify").show();
+					if(window.sessionStorage.g_beep == "true")
+					{
+						g_beep = true;
+						var myswitch = $("#Beep");
+						myswitch[0].selectedIndex = 1;
+						myswitch.slider("refresh");
+					}
+					
+					if(window.sessionStorage.g_vibration == "true")
+					{
+						g_vibration = true;
+						var myswitch = $("#Vibration");
+						myswitch[0].selectedIndex = 1;
+						myswitch.slider("refresh");
+					}
+				}
+				else
+				{
+					$("#BeepNotify").hide();
+					$("#VibrationNotify").hide();
+				}
+			}
+			else
+			{
+				$("#ShowMessage").attr("disabled", true).slider("refresh");
+				$("#Beep").attr("disabled", true).slider("refresh");
+				$("#Vibration").attr("disabled", true).slider("refresh");
+
+				$("#BeepNotify").hide();
+				$("#VibrationNotify").hide();
+			}
+		}
+
+		function detectOS()
+		{
+			var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+			var isOpera = userAgent.indexOf("Opera") > -1;
+			var isra = userAgent.indexOf("Chrome") > -1;
+			
+			if ((userAgent.indexOf("Opera") > -1) 
+				|| (userAgent.indexOf("Firefox") > -1)
+				|| (userAgent.indexOf("Chrome") > -1)
+				|| (userAgent.indexOf("Safari") > -1)
+				|| (userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1)) 
+			{
+				return false;
+			}
+		
+			//平台、设备和操作系统
+			var system ={
+				win : false,
+				mac : false,
+				xll : false
+			};
+			//检测平台
+			var p = navigator.platform;
+			system.win = p.indexOf("Win") == 0;
+			system.mac = p.indexOf("Mac") == 0;
+			system.x11 = (p == "X11") || (p.indexOf("Linux") == 0);
+
+			//跳转语句
+			if(system.win||system.mac||system.xll){//转向后台登陆页面
+				return false;
+			}else{
+				return true;
+			}
+		}
+
+		function PreviewPage()
+		{
+			window.sessionStorage.g_showmessage = g_showmessage;
+			window.sessionStorage.g_beep = g_beep;
+			window.sessionStorage.g_vibration = g_vibration;
+			window.location ="kingview_setting_page.html";
+		}
+
+		document.addEventListener("deviceready", onDeviceReady, false);
+		function onDeviceReady() {
+		}
+
+		function onMessageConfirm(buttonIndex) {
+			if(buttonIndex == 2){
+				g_showmessage = true;
+				$("#BeepNotify").show();
+				$("#VibrationNotify").show();
+			}
+			else
+			{
+				$("#BeepNotify").hide();
+				$("#VibrationNotify").hide();
+				var MessageSwitch = $("#ShowMessage");
+				MessageSwitch[0].selectedIndex = 0;
+				MessageSwitch.slider("refresh");
+			}
+		}
+
+		function showMessageConfirm() {
+		  navigator.notification.confirm(
+			'"通知"可能包括提醒、声音及震动标记。这些可在"设置中配置"。',
+			onMessageConfirm,
+			'"组态王客户端"想给您发送推送通知',
+			['不允许','允许']
+		  );
+		}
+
+		function ShowMessageChanged(obj) {
+			var MessageSwitch = $("#ShowMessage");
+			if(MessageSwitch[0].selectedIndex == 1)
+			{
+				var IsMobile = detectOS();
+				if(IsMobile == true)
+				{
+					g_showmessage = false;
+					showMessageConfirm();
+				}
+			}
+			else
+			{
+				g_showmessage = false;
+				$("#BeepNotify").hide();
+				$("#VibrationNotify").hide();
+			}
+		}
+
+		function BeepChanged(obj) {
+			var BeepSwitch = $("#Beep");
+			if(BeepSwitch[0].selectedIndex == 1)
+			{
+				var IsMobile = detectOS();
+				if(IsMobile == true)
+				{
+					g_beep = true;
+				}
+				else
+				{
+					g_beep = false;
+				}
+			}
+			else
+			{
+				g_beep = false;
+			}
+		}
+
+		function VibrationChanged(obj) {
+			var VibrationSwitch = $("#Vibration");
+			if(VibrationSwitch[0].selectedIndex == 1)
+			{
+				var IsMobile = detectOS();
+				if(IsMobile == true)
+				{
+					g_vibration = true;
+				}
+				else
+				{
+					g_vibration = false;
+				}
+			}
+			else
+			{
+				g_vibration = false;
+			}
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="alarmconfig_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">报警消息提醒</h1>
+			</div>
+
+			<div date-role="fieldcontain" id="MessageNotify">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">接收新消息通知</label>
+						</td>
+
+						<td>
+							<select id="ShowMessage" data-role="slider" onchange="ShowMessageChanged(this)" >
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="fieldcontain" id="BeepNotify">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">声音</label>
+						</td>
+						<td>
+							<select id="Beep" data-role="slider" onchange="BeepChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:40px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div date-role="fieldcontain"  id="VibrationNotify">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">振动</label>
+						</td>
+						<td>
+							<select id="Vibration" data-role="slider" onchange="VibrationChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:40px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+	</body>
+</html>

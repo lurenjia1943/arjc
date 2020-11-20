@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title></title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+		<script type="text/javascript">
+
+		window.onload=function()
+		{
+			var userName = window.sessionStorage.username;
+			var loginTime = window.sessionStorage.loginTime;
+			document.getElementById("userNameLab").innerHTML = userName;
+			document.getElementById("loginTimeLab").innerHTML = loginTime;
+		}
+
+		function PreviewPage()
+		{
+			window.location ="kingview_setting_page.html";
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="userinfo_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">用户信息</h1>
+			</div>
+
+			<div date-role="fieldcontain" class="shadow" style="height:35px;padding-top:15px;">
+				<label style="display:inline;">当前用户：</label>
+				<label style="display:inline;" id="userNameLab">user1</label>
+			</div>
+
+			<div date-role="fieldcontain" class="shadow" style="height:35px;padding-top:15px;">
+				<label style="display:inline;">登录时间：</label>
+				<label style="display:inline;" id="loginTimeLab">2015-9-30 11:10:10</label>
+			</div>
+		</div>
+	</body>
+</html>

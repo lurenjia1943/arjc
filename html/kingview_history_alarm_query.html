@@ -1,0 +1,354 @@
+<<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/easyui/default/easyui.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_realtime.js"></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_history.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+		<script type="text/javascript">
+		var g_queryCondition = [];
+		var g_queryType;
+		var g_specifyOption;
+
+		$(document).on("pageinit", "#historyalarmquery_page", function()
+		{
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+			
+			//加载实时报警数据变量组配置信息
+			LoadVarGroupConfigInfo();
+			
+			//初始化历史报警数据报表属性页
+			InitHistoryAlarmPropertyPage();
+		});
+		
+		//加载实时报警数据变量组配置信息
+		function LoadVarGroupConfigInfo()
+		{
+			//获取历史数据当前变量组
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			if(typeof VarGroupIndex != "undefined")
+			{
+				var object = window.sessionStorage.AlarmHistoryConfigInfo;
+				if(typeof object != "undefined")
+				{
+					var AlarmHistoryConfigInfo = eval(object);  
+					for(var i = 0; i < AlarmHistoryConfigInfo.length; i++)
+					{
+						if(AlarmHistoryConfigInfo[i].VarGroupIndex == VarGroupIndex)
+						{	
+							//获取查询条件
+							g_queryCondition = AlarmHistoryConfigInfo[i].HistoryQueryCondition;	
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		function InitHistoryAlarmPropertyPage()
+		{
+			//指定方式
+			var SpecificSwitch = $("#SpecificSelect");
+			SpecificSwitch[0].selectedIndex = 1;
+			document.getElementById("SpecificTime").style.display="";
+			var SpecificQueryObj = document.getElementById("SpecificQueryType").options;
+			
+			//时间段方式
+			var IntervalSwitch = $("#IntervalSelect");
+			IntervalSwitch[0].selectedIndex = 0;
+			document.getElementById("StartTime").style.display="none";
+			document.getElementById("EndTime").style.display="none";
+			var StartTime = new Date(new Date() - 1000 * 60*60*24).Format("yyyy-MM-ddThh:mm:ss");
+			var EndTime = new Date().Format("yyyy-MM-ddThh:mm:ss");
+			
+			//获取查询方式
+			if (typeof g_queryCondition == "undefined")
+			{
+				//设置默认查询方式 -- 近一天
+				$("#InputPriTxt").val(1);
+				SpecificQueryObj.selectedIndex = 0;
+				$('#SpecificQueryType').selectmenu('refresh');
+				
+				//设置时间段查询方式起始时间及结束时间
+				document.getElementById("InputStartTime").value = StartTime;
+				document.getElementById("InputEndTime").value = EndTime;
+			}
+			else
+			{
+				//优先级
+				var QueryCondition = g_queryCondition.split(",");
+				$("#InputPriTxt").val(QueryCondition[2]);
+				g_queryType = QueryCondition[3];
+			
+				//查询方式
+				var QueryType = QueryCondition[3];
+				if(QueryType == "SpecificQuery")
+				{
+					var OptionValue = QueryCondition[4];
+					if(OptionValue == 1)
+					{
+						SpecificQueryObj.selectedIndex = 0;
+					}
+					if(OptionValue == 2)
+					{
+						SpecificQueryObj.selectedIndex = 1;
+					}
+					if(OptionValue == 3)
+					{
+						SpecificQueryObj.selectedIndex = 2;
+					}
+					$('#SpecificQueryType').selectmenu('refresh');
+					
+					//设置时间段查询方式起始时间及结束时间
+					document.getElementById("InputStartTime").value = StartTime;
+					document.getElementById("InputEndTime").value = EndTime;
+				}
+				else
+				{
+					SpecificSwitch[0].selectedIndex = 0;
+					document.getElementById("SpecificTime").style.display="none";
+					
+					IntervalSwitch[0].selectedIndex = 1;
+					document.getElementById("StartTime").style.display="";
+					document.getElementById("EndTime").style.display="";
+					document.getElementById("InputStartTime").value = QueryCondition[0].replace(' ','T');
+					document.getElementById("InputEndTime").value = QueryCondition[1].replace(' ','T');	
+				}
+			}
+			SpecificSwitch.slider("refresh");
+			IntervalSwitch.slider("refresh");
+		}
+
+		function PreviewPage()
+		{
+			var StartTime = "";
+			var EndTime = "";
+			var QueryCondition = "";
+
+			var IntervalSwitch = $("#IntervalSelect");
+			var SpecificSwitch = $("#SpecificSelect");
+			if(SpecificSwitch[0].selectedIndex == 1)
+			{
+				var date = new Date();
+				EndTime = date.getFullYear()+"-"+(date.getMonth()+1)+"-"+date.getDate()+" "+date.getHours()+":"+date.getMinutes() + ":" + date.getSeconds();
+
+				g_specifyOption = $('#SpecificQueryType option:selected').val();
+				if(g_specifyOption==1)
+				{
+					date.setDate(date.getDate()-1);
+					StartTime = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+				}
+				if(g_specifyOption==2)
+				{
+					date.setDate(date.getDate()-7);
+					StartTime = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+				}
+				if(g_specifyOption==3)
+				{
+					date.setMonth(date.getMonth()-1);
+					StartTime = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+				}
+			}
+			if(IntervalSwitch[0].selectedIndex == 1)
+			{
+				strTime = document.getElementById("InputStartTime").value;
+				StartTime = strTime.replace("T"," ");
+				strTime =  document.getElementById("InputEndTime").value;
+				EndTime = strTime.replace("T"," ");
+				g_specifyOption = -1;
+				if(!(StartTime < EndTime))
+				{
+					alert("查询结束时间需要大于起始时间！");
+					return;
+				}
+			}
+			var index = 0;
+			QueryCondition += StartTime;
+			QueryCondition += ",";
+			QueryCondition += EndTime;
+			QueryCondition += ",";
+
+			//优先级
+			var strPri = document.getElementById("InputPriTxt").value;
+			if(strPri < 1 || strPri > 999)
+			{
+				alert("优先级：请输入1~999之间的数字！");
+				return;
+			}
+			QueryCondition += strPri;
+			QueryCondition += ",";
+			
+			QueryCondition += g_queryType;
+			QueryCondition += ",";
+			
+			QueryCondition += g_specifyOption;
+			
+			//保存变量组配置信息
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			var object = window.sessionStorage.AlarmHistoryConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var AlarmHistoryConfigInfo = eval(object);  
+				for(var i = 0; i < AlarmHistoryConfigInfo.length; i++)
+				{
+					if(AlarmHistoryConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{
+						AlarmHistoryConfigInfo[i].HistoryQueryCondition = QueryCondition;
+						break;
+					}
+				}
+				window.sessionStorage.AlarmHistoryConfigInfo = JSON.stringify(AlarmHistoryConfigInfo); 
+			}
+			window.location="kingview_alarmdata_page.html";
+		}
+
+		function SpecificQueryChanged()
+		{
+			var IntervalSwitch = $("#IntervalSelect");
+			var SpecificSwitch = $("#SpecificSelect");
+			if(SpecificSwitch[0].selectedIndex == 1)
+			{
+				IntervalSwitch[0].selectedIndex = 0;
+				document.getElementById("SpecificTime").style.display="";
+				document.getElementById("StartTime").style.display="none";
+				document.getElementById("EndTime").style.display="none";
+				g_queryType = "SpecificQuery";
+			}
+			else
+			{
+				IntervalSwitch[0].selectedIndex = 1;
+				document.getElementById("SpecificTime").style.display="none";
+				document.getElementById("StartTime").style.display="";
+				document.getElementById("EndTime").style.display="";
+			}
+			IntervalSwitch.slider("refresh");
+		}
+
+		function IntervalQueryChanged()
+		{
+			var SpecificSwitch = $("#SpecificSelect");
+			var IntervalSwitch = $("#IntervalSelect");
+			if(IntervalSwitch[0].selectedIndex == 1)
+			{
+				SpecificSwitch[0].selectedIndex = 0;
+				document.getElementById("StartTime").style.display="";
+				document.getElementById("EndTime").style.display="";
+				document.getElementById("SpecificTime").style.display="none";
+				g_queryType = "IntervalQuery";
+			}
+			else
+			{
+				SpecificSwitch[0].selectedIndex = 1;
+				document.getElementById("StartTime").style.display="none";
+				document.getElementById("EndTime").style.display="none";
+				document.getElementById("SpecificTime").style.display="";
+			}
+			SpecificSwitch.slider("refresh");
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="historyalarmquery_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">历史报警参数设置</h1>
+			</div>
+
+			<div class="fieldcontain" id="Priority">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">优先级</label>
+						</td>
+
+						<td>
+							<input type="number" name="test" id="InputPriTxt" style="width:95px" value="1">
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="fieldcontain" id="SpecificQuery">
+				<table class = "shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">按指定方式查询</label>
+						</td>
+
+						<td>
+							<select id="SpecificSelect" data-role="slider" onchange="SpecificQueryChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+
+				<div class="fieldcontain" id="SpecificTime">
+					<select name="SpecificQueryType" id="SpecificQueryType">
+						<option value="1">最近一天</option>
+						<option value="2">最近一周</option>
+						<option value="3">最近一个月</option>
+					</select>
+				</div>
+			</div>
+
+			<div class="fieldcontain" id="IntervalQuery">
+				<table class = "shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">按时间段查询</label>
+						</td>
+
+						<td>
+							<select id="IntervalSelect" data-role="slider" onchange="IntervalQueryChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+
+				<div data-role="fieldcontain" id="StartTime">
+					<table class = "shadow">
+						<tr>
+							<td style="width:100%;">
+								<label style="font-size:16px" for="InputStartTime">起始时间：</label>
+							</td>
+
+							<td>
+								<input type="datetime-local" class="Wstarttime" name="InputStartTime" id ="InputStartTime" step="1" value="2015-09-22T16:05:33"/>
+							</td>
+						</tr>
+					</table>
+				</div>
+
+				<div data-role="fieldcontain" id="EndTime">
+					<table class = "shadow">
+						<tr>
+							<td style="width:100%;">
+								<label style="font-size:16px" for="InputEndTime">结束时间：</label>
+							</td>
+
+							<td>
+								<input type="datetime-local" class="Wendtime" name="InputEndTime" id ="InputEndTime" step="1" value="2015-09-22T16:11:39"/>
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

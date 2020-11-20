@@ -1,0 +1,735 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title></title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse.js"></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_history.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+		<script type="text/javascript">
+		var g_ReportQueryConfig;		//查询条件信息
+		var g_StatisticType;			//统计类型
+		
+		$(document).on("pageinit", "#historyreportquery_page", function()
+		{
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+			
+			//加载历史数据变量组配置信息
+			LoadVarGroupConfigInfo();
+			
+			//初始化历史数据报表属性页
+			InitReportPropertyPage();
+		});
+		
+		//加载历史数据变量组配置信息
+		function LoadVarGroupConfigInfo()
+		{
+			//获取历史数据当前变量组
+			var VarGroupIndex = window.sessionStorage.HistorySelectedVarGroup;
+			if(typeof VarGroupIndex != "undefined")
+			{
+				var object = window.sessionStorage.HistoryReportConfigInfo;
+				if(typeof object != "undefined")
+				{
+					var HistoryConfigInfo = eval(object);  
+					for(var i = 0; i < HistoryConfigInfo.length; i++)
+					{
+						if(HistoryConfigInfo[i].VarGroupIndex == VarGroupIndex)
+						{
+							//获取配置变量
+							var tagNameList = HistoryConfigInfo[i].TagNameList;
+							g_tagNameList = tagNameList.split(",");					
+							
+							//获取配置信息
+							g_ReportQueryConfig = HistoryConfigInfo[i].QueryTypeInfo;
+							
+							//获取统计类型
+							g_StatisticType = HistoryConfigInfo[i].StatisticType;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		//初始化历史数据报表属性页
+		function InitReportPropertyPage()
+		{
+			var DayReportSwitch = $("#DayReportSelect");
+			var MonthReportSwitch = $("#MonthReportSelect");
+			var FreeReportSwitch = $("#FreeReportSelect");
+			DayReportSwitch[0].selectedIndex = 0;
+			MonthReportSwitch[0].selectedIndex = 0;
+			FreeReportSwitch[0].selectedIndex = 0;
+			document.getElementById("DayProperty").style.display="none";
+			document.getElementById("MonthProperty").style.display="none";
+			document.getElementById("FreeProperty").style.display="none";
+
+			//获取统计方式
+			if(typeof g_StatisticType != "undefined")
+			{
+				if (g_StatisticType & 4)
+				{
+					$('input:checkbox[name="StatisticSumType"]').attr("checked",true).checkboxradio("refresh");
+				}
+				else
+				{
+					$('input:checkbox[name="StatisticSumType"]').attr("checked",false).checkboxradio("refresh");
+				}
+
+				if (g_StatisticType & 8)
+				{
+					$('input:checkbox[name="StatisticAveType"]').attr("checked",true).checkboxradio("refresh");
+				}
+				else
+				{
+					$('input:checkbox[name="StatisticAveType"]').attr("checked",false).checkboxradio("refresh");
+				}
+
+				if (g_StatisticType & 16)
+				{
+					$('input:checkbox[name="StatisticMaxType"]').attr("checked",true).checkboxradio("refresh");
+				}
+				else
+				{
+					$('input:checkbox[name="StatisticMaxType"]').attr("checked",false).checkboxradio("refresh");
+				}
+				if (g_StatisticType & 32)
+				{
+					$('input:checkbox[name="StatisticMinType"]').attr("checked",true).checkboxradio("refresh");
+				}
+				else
+				{
+					$('input:checkbox[name="StatisticMinType"]').attr("checked",false).checkboxradio("refresh");
+				}
+			}
+			
+			//初始化日报表
+			var currDayDate = new Date().Format("yyyy-MM-dd");
+			var dayDateObj = document.getElementById("DayReportDate");
+			dayDateObj.value = currDayDate;
+
+			//初始化月报表
+			var monthDateObj = document.getElementById("MonthReportDate");
+			var monthDate = new Date().Format("yyyy-MM");
+			monthDateObj.value = monthDate;
+			var monthTimeObj = document.getElementById("MonthReportTime");
+			var monthTime = new Date().Format("hh:mm:ss");
+			monthTimeObj.value = monthTime;
+
+			//初始化自由报表
+			var currDateTime = new Date().Format("yyyy-MM-dd hh:mm:ss");
+			var dateTimeArr = currDateTime.split(" ");
+			var dateTime = dateTimeArr[0] + "T" + dateTimeArr[1];
+			var startDateTimeObj = document.getElementById("FreeReportStartDateTime");
+			var endDateTimeObj = document.getElementById("FreeReportEndDateTime");
+			startDateTimeObj.value = dateTime;
+			endDateTimeObj.value = dateTime;
+
+			//获取查询条件
+			if (typeof g_ReportQueryConfig != "undefined")
+			{
+				var queryInfoArr = g_ReportQueryConfig.split("|");
+				if (queryInfoArr[0] == "dayReport")
+				{
+					DayReportSwitch[0].selectedIndex = 1;
+					document.getElementById("DayProperty").style.display="";
+					var dayDate = queryInfoArr[1];
+					var dayDateObj = document.getElementById("DayReportDate");
+					dayDateObj.value=dayDate;
+				}
+				if (queryInfoArr[0] == "monthReport")
+				{
+					MonthReportSwitch[0].selectedIndex = 1;
+					document.getElementById("MonthProperty").style.display="";
+					var monthDate = queryInfoArr[1];
+					var monthTime = queryInfoArr[2];
+					var monthDateObj = document.getElementById("MonthReportDate");
+					monthDateObj.value = monthDate;
+					var monthTimeObj = document.getElementById("MonthReportTime");
+					monthTimeObj.value = monthTime;
+				}
+				if (queryInfoArr[0] == "freeReport")
+				{
+					FreeReportSwitch[0].selectedIndex = 1;
+					document.getElementById("FreeProperty").style.display="";
+					var freeStartDateTime = queryInfoArr[1];
+					var freeEndDateTime = queryInfoArr[2];
+					var freeStartDateTimeArr = freeStartDateTime.split(" ");
+					var freeEndDateTimeArr = freeEndDateTime.split(" ");
+					var freeStartDateTimeObj = document.getElementById("FreeReportStartDateTime");
+					freeStartDateTimeObj.value = freeStartDateTimeArr[0] + "T" + freeStartDateTimeArr[1];
+					var freeEndDateTimeObj = document.getElementById("FreeReportEndDateTime");
+					freeEndDateTimeObj.value = freeEndDateTimeArr[0] + "T" + freeEndDateTimeArr[1];
+
+					var intervalValue = queryInfoArr[3];
+					$("#QueryInterval").val(intervalValue);
+					var intervalQueryObj = document.getElementById("QueryIntervalType").options;
+					var intervalType = queryInfoArr[4];
+					if (intervalType == 0)
+					{
+						intervalQueryObj.selectedIndex = 0;
+					}
+					if (intervalType == 1)
+					{
+						intervalQueryObj.selectedIndex = 1;
+					}
+					if (intervalType == 2)
+					{
+						intervalQueryObj.selectedIndex = 2;
+					}
+					$('#QueryIntervalType').selectmenu('refresh');
+				}
+			}
+			else
+			{
+                DayReportSwitch[0].selectedIndex = 1;
+                document.getElementById("DayProperty").style.display="";
+			}
+			DayReportSwitch.slider("refresh");
+			MonthReportSwitch.slider("refresh");
+			FreeReportSwitch.slider("refresh");
+		}
+
+		function PreviewPage()
+		{
+			var startTime;
+			var endTime;
+			var iInterval = 0;
+			var QueryTypeInfo;
+			var minuteSeconds = 60;
+			var oneHourSeconds = 60*minuteSeconds;
+			var daySeconds = 24*oneHourSeconds;
+
+			var DayReportSwitch = $("#DayReportSelect");
+			var MonthReportSwitch = $("#MonthReportSelect");
+			var FreeReportSwitch = $("#FreeReportSelect");
+			if (DayReportSwitch[0].selectedIndex == 1) 		//日报
+			{
+				var dayDateTime = document.getElementById("DayReportDate").value;
+				var currDayDateTime = new Date();
+				var dayVec = dayDateTime.split("-");
+				if (dayVec.length == 3)
+				{
+					if (dayVec[0] < 1970)
+					{
+						alert("输入的时间不合法！");
+						return;
+					}
+					if(Date.parse(dayVec[0]+"/"+dayVec[1]+"/"+dayVec[2]) >
+					   Date.parse(currDayDateTime.getFullYear()+"/"+(currDayDateTime.getMonth() + 1) +"/"+currDayDateTime.getDate()))
+					{
+						alert("输入的时间大于当前系统时间，没有历史数据！");
+						return;
+					}
+					else
+					{
+						var monthTime = document.getElementById("MonthReportTime").value;
+						var timeVec = monthTime.split(":");
+						startTime = dayVec[0] + "-" + dayVec[1] + "-" + dayVec[2] + " " + 00 + ":" + 00 + ":" + 00;
+						if(Date.parse(dayVec[0]+"/"+dayVec[1]+"/"+dayVec[2]) ==
+						Date.parse(currDayDateTime.getFullYear()+"/"+(currDayDateTime.getMonth() + 1) +"/"+currDayDateTime.getDate()))
+						{
+							endTime = dayVec[0] + "-" + dayVec[1] + "-" + dayVec[2] + " " + timeVec[0] + ":" + 00 + ":" + 00;
+						}
+						else
+						{
+							endTime = dayVec[0] + "-" + dayVec[1] + "-" + dayVec[2] + " " + 23 + ":" + 00 + ":" + 00;
+						}
+					}
+					iInterval = oneHourSeconds;
+					var dayReport = "dayReport";
+					QueryTypeInfo = dayReport + "|" + dayDateTime;
+				}
+			}
+			if (MonthReportSwitch[0].selectedIndex == 1) 		//月报
+			{
+				var monthDate = document.getElementById("MonthReportDate").value;
+				var monthTime = document.getElementById("MonthReportTime").value;
+				var currDayDateTime = new Date();
+				var dateVec = monthDate.split("-");
+				var timeVec = monthTime.split(":");
+				if (dateVec.length == 2  &&  timeVec.length == 3)
+				{
+					if (dateVec[0] < 1970)
+					{
+						alert("输入的时间不合法！");
+						return;
+					}
+
+					var endMonthDate = new Date(dateVec[0], dateVec[1], 0);
+					var iMonthDays = endMonthDate.getDate();	//获取某年某月的最后一天
+					if(Date.parse(dateVec[0]+"/"+dateVec[1]) >
+					   Date.parse(currDayDateTime.getFullYear()+"/"+(currDayDateTime.getMonth() + 1) +"/"+ currDayDateTime.getDate()))
+					{
+						//设置的日期大于当前日期
+						alert("输入的时间大于当前系统时间，没有历史数据！");
+						return;
+					}
+					else
+					{
+						startTime = dateVec[0] + "-" + dateVec[1] + "-" + 1 + " " + timeVec[0] + ":" + timeVec[1] + ":" + timeVec[2];
+						if(Date.parse(dateVec[0]+"/"+dateVec[1])==Date.parse(currDayDateTime.getFullYear()+"/"+(currDayDateTime.getMonth() + 1)))
+						{
+							endTime = dateVec[0] + "-" + dateVec[1] + "-" + currDayDateTime.getDate() + " " + timeVec[0] + ":" + timeVec[1] + ":" + timeVec[2];
+						}
+						else
+						{
+							endTime = dateVec[0] + "-" + dateVec[1] + "-" + iMonthDays + " " + timeVec[0] + ":" + timeVec[1] + ":" + timeVec[2];
+						}
+					}
+					iInterval = daySeconds;
+				}
+				var monthReport = "monthReport";
+				QueryTypeInfo = monthReport + "|" + monthDate + "|" + monthTime;
+			}
+			if (FreeReportSwitch[0].selectedIndex == 1) 		//自由报表
+			{
+				var obj=document.getElementById('QueryIntervalType');
+				var selIdx=obj.selectedIndex;
+
+				var st = document.getElementById("FreeReportStartDateTime").value;
+				var starttimetemp = st.split("T");
+				var Lengthofstarttime = starttimetemp[1].split(":");
+				if(Lengthofstarttime.length == 2)
+				{
+				   starttimetemp[1] += ":00" ;
+				}
+				startTime = starttimetemp[0] + " " + starttimetemp[1];
+				var et = document.getElementById("FreeReportEndDateTime").value;
+				var endtimetemp = et.split("T");
+				var Lengthofendtime = endtimetemp[1].split(":");
+				if(Lengthofendtime.length == 2)
+				{
+				   endtimetemp[1] += ":00" ;
+				}
+				endTime = endtimetemp[0] + " " + endtimetemp[1];
+
+				var stMonthDate = starttimetemp[0].split('-');
+				var edMonthDate = endtimetemp[0].split('-');
+				if (stMonthDate[0] < 1970 || edMonthDate[0] < 1970)
+				{
+					alert("输入的时间不合法！");
+					return;
+				}
+
+				if (GetDateDiff(startTime, endTime, "second") < 0)
+				{
+					alert("日期不合法！")
+					return;
+				}
+				var intervalObj = document.getElementById("QueryInterval");
+				iInterval = intervalObj.value;
+
+				if (selIdx == 0) 		//秒
+				{
+					iInterval = iInterval;
+				}
+				if (selIdx == 1) 		//分
+				{
+					iInterval = iInterval * minuteSeconds;
+				}
+				if (selIdx == 2) 		//时
+				{
+					iInterval = iInterval * oneHourSeconds;
+				}
+				var freeReport = "freeReport";
+				QueryTypeInfo = freeReport + "|" + startTime + "|" + endTime + "|" + intervalObj.value + "|" + selIdx;
+			}
+
+			var iStatisticType = 0;
+			var iStatisticSum = 4;    //统计总和值
+			var iStatisticAve = 8;    //统计平均值
+			var iStatisticMax = 16;   //统计最大值
+			var iStatisticMin = 32;   //统计最小值
+
+			var chkVal = $('input:checkbox[name="StatisticSumType"]:checked').val();
+			if (chkVal == "on")
+			{
+				iStatisticType += iStatisticSum;
+			}
+			chkVal = $('input:checkbox[name="StatisticAveType"]:checked').val();
+			if (chkVal == "on")
+			{
+				iStatisticType += iStatisticAve;
+			}
+			chkVal = $('input:checkbox[name="StatisticMaxType"]:checked').val();
+			if (chkVal == "on")
+			{
+				iStatisticType += iStatisticMax;
+			}
+			chkVal = $('input:checkbox[name="StatisticMinType"]:checked').val();
+			if (chkVal == "on")
+			{
+				iStatisticType += iStatisticMin;
+			}
+
+			var JsonString_QueryInfo = KmCreateJsonString_Condition_TimeInterval(startTime,endTime,"intervalQuery", iInterval);
+			
+			//保存变量组配置信息
+			var VarGroupIndex = window.sessionStorage.HistorySelectedVarGroup;
+			var object = window.sessionStorage.HistoryReportConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var HistoryReportConfigInfo = eval(object);  
+				for(var i = 0; i < HistoryReportConfigInfo.length; i++)
+				{
+					if(HistoryReportConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{
+						HistoryReportConfigInfo[i].TagNameList = g_tagNameList.toString();
+						HistoryReportConfigInfo[i].QueryTypeInfo = QueryTypeInfo;
+						HistoryReportConfigInfo[i].StatisticType = iStatisticType;
+						HistoryReportConfigInfo[i].ReportQueryInfo = JsonString_QueryInfo;
+						break;
+					}
+				}
+				window.sessionStorage.HistoryReportConfigInfo = JSON.stringify(HistoryReportConfigInfo); 
+			}
+			window.location = "kingview_historydata_page.html";
+		}
+		
+		function InitTagNameSelectVector()
+		{
+			document.getElementById("tagListVector").innerHTML="";
+			
+			//获取实时数据当前变量组变量列表
+			var AllTagNameArray = window.sessionStorage.HistoryCurVarGroupTagList;
+			if(typeof AllTagNameArray != "undefined")
+			{
+				var TagNameArray = AllTagNameArray.split(',');
+				if(TagNameArray.length != 0)
+				{
+					for(var i=0; i < TagNameArray.length; i++)
+					{
+						var bSelectTag = false;
+						var TagName = TagNameArray[i];
+						if(TagName != "")
+						{
+							//获取当前变量组已配置变量
+							if(typeof g_tagNameList != "undefined")
+							{
+								for(var j = 0; j < g_tagNameList.length; j++)
+								{
+									if(TagName == g_tagNameList[j])
+									{
+										bSelectTag = true;
+										break;
+									}
+								}	
+							}
+							
+							if(bSelectTag)
+							{
+								var strLabel = "<label for="+TagNameArray[i]+"> "+TagNameArray[i]+"</label>";
+								$("#tagListVector").append(strLabel+"<input type=checkbox checked=true id="+TagNameArray[i] + " value="+TagNameArray[i]+ ">");
+							}
+							else
+							{
+								var strLabel = "<label for="+TagNameArray[i]+"> "+TagNameArray[i]+"</label>";
+								$("#tagListVector").append(strLabel+"<input type=checkbox id="+TagNameArray[i] + " value="+TagNameArray[i]+ ">");
+							}
+						}
+					}	
+				}
+			}
+			$("input[type=checkbox]").checkboxradio();
+			$("#filterBasicInput").val("");
+		}
+		
+		function DoSelectTag()
+		{
+			$( "#serchTagDiv" ).panel( "close" );
+		  	var tagNameObj = document.getElementById("tagListForm");
+			var TagNameArray = [];
+			var nameIndex = 0;
+			for(var i=1; i < tagNameObj.length; i++)
+			{
+				var TagObject = tagNameObj[i];
+				if(TagObject.checked)
+				{
+					TagNameArray[nameIndex] = TagObject.value;
+					nameIndex++;
+				}
+			}
+			if(nameIndex == 0)
+			{
+				alert("至少选择一个变量！");
+				return;
+			}
+			if(nameIndex > 10)
+			{
+				alert("报表分析最多添加10个变量！");
+				return;
+			}
+			g_tagNameList = TagNameArray;
+		}
+		
+		function OnVarSelect()
+		{
+			InitTagNameSelectVector();
+			$( "#serchTagDiv" ).panel( "open" );
+		}
+
+		//日报表
+		function DayReportChanged()
+		{
+			var DayReportSwitch = $("#DayReportSelect");
+			var MonthReportSwitch = $("#MonthReportSelect");
+			var FreeReportSwitch = $("#FreeReportSelect");
+			if(DayReportSwitch[0].selectedIndex == 1)
+			{
+				MonthReportSwitch[0].selectedIndex = 0;
+				FreeReportSwitch[0].selectedIndex = 0;
+				document.getElementById("DayProperty").style.display='';
+				document.getElementById("MonthProperty").style.display="none";
+				document.getElementById("FreeProperty").style.display="none";
+			}
+			else
+			{
+				document.getElementById("DayProperty").style.display="none";
+			}
+			MonthReportSwitch.slider("refresh");
+			FreeReportSwitch.slider("refresh");
+		}
+
+		//月报表
+		function MonthReportChanged()
+		{
+			var DayReportSwitch = $("#DayReportSelect");
+			var MonthReportSwitch = $("#MonthReportSelect");
+			var FreeReportSwitch = $("#FreeReportSelect");
+			if(MonthReportSwitch[0].selectedIndex == 1)
+			{
+				DayReportSwitch[0].selectedIndex = 0;
+				FreeReportSwitch[0].selectedIndex = 0;
+				document.getElementById("MonthProperty").style.display='';
+				document.getElementById("DayProperty").style.display="none";
+				document.getElementById("FreeProperty").style.display="none";
+			}
+			else
+			{
+				document.getElementById("MonthProperty").style.display="none";
+			}
+			DayReportSwitch.slider("refresh");
+			FreeReportSwitch.slider("refresh");
+		}
+
+		//自由报表
+		function FreeReportChanged()
+		{
+			var DayReportSwitch = $("#DayReportSelect");
+			var MonthReportSwitch = $("#MonthReportSelect");
+			var FreeReportSwitch = $("#FreeReportSelect");
+			if(FreeReportSwitch[0].selectedIndex == 1)
+			{
+				DayReportSwitch[0].selectedIndex = 0;
+				MonthReportSwitch[0].selectedIndex = 0;
+				document.getElementById("FreeProperty").style.display='';
+				document.getElementById("DayProperty").style.display="none";
+				document.getElementById("MonthProperty").style.display="none";
+			}
+			else
+			{
+				document.getElementById("FreeProperty").style.display="none";
+			}
+			DayReportSwitch.slider("refresh");
+			MonthReportSwitch.slider("refresh");
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="historyreportquery_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-btn-icon-left" id="KMPreviewBtn"  onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">报表参数设置</h1>
+			</div>
+
+			<button class="shadow" onclick="OnVarSelect()"><span style="float:left">变量选择</span></button>
+			
+			<div class="fieldcontain" id="DayReport">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">日报</label>
+						</td>
+
+						<td>
+							<select id="DayReportSelect" data-role="slider" onchange="DayReportChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+
+				<div data-role="fieldcontain" id="DayProperty">
+					<table class = "shadow">
+						<tr>
+							<td style="width:100%;">
+								<label style="font-size:16px" for="DayReportDate">日期</label>
+							</td>
+
+							<td>
+								<input type="date" name="DayReportDate" id="DayReportDate" value="2015-09-21">
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+
+			<div class="fieldcontain" id="MonthReport">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px" >月报</label>
+						</td>
+
+						<td>
+							<select id="MonthReportSelect" data-role="slider" onchange="MonthReportChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+
+				<div date-role="fieldcontain" id="MonthProperty">
+					<table class = "shadow">
+						<tr>
+							<td style="width:100%;">
+							<label style="font-size:16px" for="MonthReportDate">日期</label>
+							</td>
+
+							<td>
+								<input type="month" name="MonthReportDate" id="MonthReportDate" style="width:150px" value="2015-09">
+							</td>
+
+							<td>
+								<input type="datetime" name="MonthReportTime" id="MonthReportTime" style="width:95px" value="13:00:00">
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+
+			<div class="fieldcontain" id="FreeReport">
+				<table class="shadow">
+					<tr>
+						<td style="width:100%;">
+							<label style="font-size:16px">自由报表</label>
+						</td>
+
+						<td>
+							<select id="FreeReportSelect" data-role="slider" onchange="FreeReportChanged(this)" style="background-color:#265ECB;border-color:#265ECB;width:20px;height:30px;">
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</td>
+					</tr>
+				</table>
+
+				<div data-role="fieldcontain" id="FreeProperty">
+					<table class = "shadow">
+						<tr>
+							<td style="width:100%;">
+								<label style="font-size:16px" for="startTime">起始时间：</label>
+							</td>
+
+							<td>
+								<input type="datetime-local" class="Wstarttime" name="FreeReportStartDateTime" id ="FreeReportStartDateTime" step="1" value="2015-09-22T09:10:01"/>
+							</td>
+						</tr>
+					</table>
+
+					<table class = "shadow">
+						<tr>
+							<td style="width:100%;">
+								<label style="font-size:16px" for="endTime">结束时间：</label>
+							</td>
+
+							<td>
+								<input type="datetime-local" class="Wendtime" name="FreeReportEndDateTime" id ="FreeReportEndDateTime" step="1" value="2015-09-22T09:18:01"/>
+							</td>
+						</tr>
+					</table>
+
+					
+					<table class = "shadow">
+						<tr>
+							<td style="width:100%;">
+							<label style="font-size:16px" for="QueryInterval">查询间隔</label>
+							</td>
+							
+							<td>
+								<input type="number" id="QueryInterval" name="QueryInterval" value="1" style="width:100px" min="1">
+							</td>
+
+							<td>
+							<select name="QueryIntervalType" id="QueryIntervalType" class="ui-specific-query-css">
+								<option value="1">秒</option>
+								<option value="2">分</option>
+								<option value="3">时</option>
+							</select>
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+
+			<br/>
+			<br/>
+			<br/>
+
+			<div class="fieldcontain" id="ReportStatistic">
+				<div class="ui-grid-a">
+					<div class="ui-block-a">
+						<input type="checkbox" name="StatisticSumType" id="StatisticSum" checked="checked">
+						<label style="font-family:Droid Sans Fallback; font-weight:normal;font-size:16px" for="StatisticSum">求和</label>
+					</div>
+
+					<div class="ui-block-b">
+						 <input type="checkbox" name="StatisticAveType" id="StatisticAve"checked="checked">
+						 <label style="font-family:Droid Sans Fallback; font-weight:normal;font-size:16px" for="StatisticAve">平均</label>
+					</div>
+				</div>
+
+				<div class="ui-grid-a">
+					<div class="ui-block-a">
+						<input type="checkbox" name="StatisticMaxType" id="StatisticMax" checked="checked">
+						<label style="font-family:Droid Sans Fallback; font-weight:normal;font-size:16px" for="StatisticMax">最大</label>
+					</div>
+
+					<div class="ui-block-b">
+						 <input type="checkbox" name="StatisticMinType" id="StatisticMin" checked="checked">
+						 <label style="font-family:Droid Sans Fallback; font-weight:normal;font-size:16px" for="StatisticMin">最小</label>
+					</div>
+				</div>
+			</div>
+			
+			<div id="serchTagDiv" data-role="panel" data-display="overlay" data-theme="a">
+				<div data-role="header" style = "background-color:#D43C33;">
+					<h1>检索变量</h1>
+					<a data-rel="close" data-role="button" class="ui-btn-left ">取消</a>
+					<a data-role="button" class="ui-btn-right" onclick="DoSelectTag()">确定</a>  				 
+				</div>
+				
+				<form class="ui-filterable" id="tagListForm" >
+					  <input id="filterBasicInput" data-type="search">
+					  <div data-role="fieldcontain" id="tagListVector" data-filter="true" data-input="#filterBasicInput"  style="width:100%;height:700px; overflow:auto;">					 
+					 </div>
+				</form>
+		   </div>
+		</div>
+	</body>
+</html>

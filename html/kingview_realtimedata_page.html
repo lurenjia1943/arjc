@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/easyui/default/easyui.css"/>
+		<link rel="stylesheet" type="text/css" href="../thirdpart/easyui/icon.css" />
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_realtime.js"></script>
+		<script type="text/javascript" src="../thirdpart/html2canvas/html2canvas.js"></script>
+		<script type="text/javascript" src="../thirdpart/echarts-2.2.7/echarts-all.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+		<style type="text/css">
+		tr.css0 th {
+			height: 30px;
+			text-align: center;
+			font-size: 8pt;
+			background-color:#C4E0FF;
+		}
+		tr.css1 td {
+			font-size: 8pt;
+			height: 30px;
+			text-align: center;
+			background-color:#F3F3F3;
+		}
+		tr.css2 td {
+			background-color:#FFFFFF;
+			font-size: 8pt;
+			height: 30px;
+			text-align: center;
+		}
+		tr td.css3 {
+			color: #EF0066;
+		}
+
+		.ui-field-contain{
+			padding: .9em 0;
+			margin: .9em 0;
+			font-size: 12px;
+		}
+		.ui-btn {
+			font-size: 12px;
+			margin: .3em 0;
+		}
+		</style>
+
+		<script>
+		var alarmIndex = 0;
+		var g_showmessage;
+		var g_beep;
+		var g_vibration;
+		var IntervalTime = 5;
+		var g_selectAlarmGP = "RootNode";
+		var g_stationName = "local";
+		var g_vargroupList=[];
+		var g_selectedVarGroup;
+		var g_userhandle;
+		var g_publickey;
+		var g_proChecked = ["false","true","false","false","true"];
+		var g_proContent = ["","",""];
+		var g_tagNameList = [];
+		var g_selectTagNameList = [];
+		var g_tagBasicInfo = [];
+		var g_refreshFrequence = 0;
+		var g_tagTableColumn = {"0":true,"1":true,"2":true,"3":false,"4":true,"5":false,"6":true};
+
+		$(document).on("pageinit", "#realtimedata_page", function()
+		{
+			g_userhandle = window.sessionStorage.userhandle;
+			g_publickey = window.sessionStorage.publickey;
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+		});
+
+		window.onload=function()
+		{
+			//加载实时数据变量组信息
+			LoadVarGroupInfo();
+		
+			//初始化实时数据TAB页
+			InitRealtimeDataTab();
+
+			//刷新实时数据
+			RefreshRealtimeData();
+			
+			//检测设备
+			var IsMobile = detectOS();
+			if(IsMobile == true)
+			{
+				var CordovaHead = document.getElementsByTagName("head")[0];
+				var CordovaScript = document.createElement("script");
+				CordovaScript.type = "text/javascript";
+				CordovaScript.src = "../cordova.js";
+				CordovaHead.appendChild(CordovaScript);
+
+				var IndexHead = document.getElementsByTagName("head")[0];
+				var IndexScript = document.createElement("script");
+				IndexScript.type = "text/javascript";
+				IndexScript.src = "../js/index.js";
+				IndexHead.appendChild(IndexScript);
+
+				g_showmessage = window.sessionStorage.g_showmessage;
+				g_showmessageinfo = window.sessionStorage.g_showmessageinfo;
+				g_beep = window.sessionStorage.g_beep;
+				g_vibration = window.sessionStorage.g_vibration;
+				if(g_showmessage == "true")
+				{
+					setInterval("OnAlarmNotify()",3000);
+				}
+			}
+		}
+
+		//初始化实时数据TAB页
+		function InitRealtimeDataTab()
+		{
+			var windowWidth = document.body.clientWidth;
+			var wrap = document.getElementById('wrap');
+			var tabClick = wrap.querySelectorAll('.tabClick')[0];
+			var tabLi = tabClick.getElementsByTagName('li');
+
+			var tabBox =  wrap.querySelectorAll('.tabBox')[0];
+			var tabList = tabBox.querySelectorAll('.tabList');
+			var lineBorder = wrap.querySelectorAll('.lineBorder')[0];
+			var lineDiv = lineBorder.querySelectorAll('.lineDiv')[0];
+
+			var tar = 0;
+			var endX = 0;
+			var dist = 0;
+	
+			tabBox.style.overflow='hidden';
+			tabBox.style.position='absolute';
+			tabBox.style.width=windowWidth*tabList.length+"px";
+			tabBox.style.height = 500+"px";
+
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				  tabList[i].style.width=windowWidth+"px";
+				  tabList[i].style.float='left';
+				  tabList[i].style.float='left';
+				  tabList[i].style.padding='0';
+				  tabList[i].style.margin='0';
+				  tabList[i].style.verticalAlign='top';
+				  tabList[i].style.display='table-cell';
+			}
+
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				tabLi[i].start = i;
+				tabLi[i].onclick = function(){
+					var star = this.start;
+					var RealtimeType = window.sessionStorage.RealtimeType;
+					if(typeof RealtimeType != "undefined")
+					{
+						if(RealtimeType == "RealtimeReport")
+						{
+							if(star == 1)
+								return;
+						}
+						else
+						{
+							if(star == 0)
+								return;
+						}
+					}
+					
+					for(var i = 0 ;i<tabLi.length; i++ ){
+						tabLi[i].className='';
+					};
+					tabLi[star].className='active';
+					init.lineAnme(lineDiv,windowWidth/tabLi.length*star)
+					init.translate(tabBox,windowWidth,star);
+					endX= -star*windowWidth;
+				
+					if(star == 0)
+					{
+						KMRealtimeGraph();
+					}
+					if(star == 1)
+					{
+						KMRealtimeReport();
+					}
+				}
+			}
+
+			tabBox.addEventListener('touchstart',chstart,false);
+			//按下
+			function chstart(ev){
+				ev.preventDefault;
+				var touch = ev.touches[0];
+				tar=touch.pageX;
+				tabBox.style.webkitTransition='all 0s ease-in-out';
+				tabBox.style.transition='all 0s ease-in-out';
+			};
+		}
+
+		function OnTab(star){
+			var windowWidth = document.body.clientWidth;
+			var wrap = document.getElementById('wrap');
+			var tabClick = wrap.querySelectorAll('.tabClick')[0];
+			var tabLi = tabClick.getElementsByTagName('li');
+
+			var tabBox =  wrap.querySelectorAll('.tabBox')[0];
+			var tabList = tabBox.querySelectorAll('.tabList');
+			var lineBorder = wrap.querySelectorAll('.lineBorder')[0];
+			var lineDiv = lineBorder.querySelectorAll('.lineDiv')[0];
+
+			if(star<0){
+				star=0;
+			}else if(star>=tabLi.length){
+				star=tabLi.length-1
+			}
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				tabLi[i].className='';
+			};
+
+			tabLi[star].className='active';
+			init.translate(tabBox,windowWidth,star);
+			init.lineAnme(lineDiv,windowWidth/tabLi.length*star);
+		};
+
+		var init = {
+			translate:function(obj,windowWidth,star){
+				obj.style.webkitTransform='translate3d('+-star*windowWidth+'px,0,0)';
+				obj.style.transform='translate3d('+-star*windowWidth+',0,0)px';
+				obj.style.webkitTransition='all 0.3s ease-in-out';
+				obj.style.transition='all 0.3s ease-in-out';
+			},
+			touchs:function(obj,windowWidth,tar,distance,endX){
+				obj.style.webkitTransform='translate3d('+(distance+endX)+'px,0,0)';
+				obj.style.transform='translate3d('+(distance+endX)+',0,0)px';
+			},
+			lineAnme:function(obj,stance){
+				obj.style.webkitTransform='translate3d('+stance+'px,0,0)';
+				obj.style.transform='translate3d('+stance+'px,0,0)';
+				obj.style.webkitTransition='all 0.1s ease-in-out';
+				obj.style.transition='all 0.1s ease-in-out';
+			},
+			back:function(obj,windowWidth,tar,distance,endX,time){
+				obj.style.webkitTransform='translate3d('+(distance+endX)+'px,0,0)';
+				obj.style.transform='translate3d('+(distance+endX)+',0,0)px';
+				obj.style.webkitTransition='all '+time+'s ease-in-out';
+				obj.style.transition='all '+time+'s ease-in-out';
+			},
+		}
+
+		//加载变量组信息
+		function LoadVarGroupInfo()
+		{
+			//加载变量组
+			var VarGroupOption;
+			var RealtimeVarGroupList = window.sessionStorage.RealtimeVarGroupList;
+			if(typeof RealtimeVarGroupList == "undefined")
+			{
+				var AllVarGroupArray = EnumVarGroupFromKingView();
+				if(AllVarGroupArray == "")
+				{
+					return;
+				}
+
+				//设置变量组值
+				var VarGroupIndex = 0;
+				for (var key in AllVarGroupArray)
+				{
+					var VarGroupName = key;
+					g_vargroupList[VarGroupIndex] = VarGroupName;
+					VarGroupOption += "<option value=" + VarGroupIndex + ">" + VarGroupName + "</option>";
+					VarGroupIndex++;
+				}
+			}
+			else
+			{
+				//设置变量组值
+				var AllVarGroupArray = RealtimeVarGroupList.split(",");
+				if(AllVarGroupArray == "")
+				{
+					return;
+				}
+
+				for (var i = 0; i < AllVarGroupArray.length; i++)
+				{
+					var VarGroupName = AllVarGroupArray[i];
+					g_vargroupList[i] = VarGroupName;
+					VarGroupOption += "<option value=" + i + ">" + VarGroupName + "</option>";
+				}
+			}
+			$("#vargroup").html(VarGroupOption);
+			window.sessionStorage.RealtimeVarGroupList = g_vargroupList;
+
+			//设置当前变量组
+			g_selectedVarGroup = window.sessionStorage.RealtimeSelectedVarGroup;
+			if(typeof g_selectedVarGroup == "undefined")
+			{
+				g_selectedVarGroup = 0;
+				window.sessionStorage.RealtimeSelectedVarGroup = g_selectedVarGroup;
+			}
+			var VarGroupSelect = $("select#vargroup");
+			VarGroupSelect[0].selectedIndex = g_selectedVarGroup;
+			VarGroupSelect.selectmenu("refresh");
+		}
+
+		//加载配置信息
+		function LoadConfigInfo()
+		{
+			var RealtimeType = window.sessionStorage.RealtimeType;
+			if(typeof RealtimeType != "undefined")
+			{
+				if(RealtimeType == "RealtimeReport")
+				{
+					LoadReportProperty();
+				}
+				else
+				{
+					LoadGraphProperty();
+				}
+			}
+			else
+			{
+				LoadGraphProperty();
+				window.sessionStorage.RealtimeType = "RealtimeHistogram";
+			}
+		}
+		
+		//获取实时数据图表属性
+		function LoadGraphProperty()
+		{
+			//获取实时图表属性
+			var VarGroupIndex = window.sessionStorage.RealtimeSelectedVarGroup;
+			var object = window.sessionStorage.RealtimeGraphConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var RealtimeConfigInfo = eval(object);
+				for(var i = 0; i < RealtimeConfigInfo.length; i++)
+				{
+					if(RealtimeConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{						
+						//获取配置变量
+						var tagNameList = RealtimeConfigInfo[i].TagNameList;
+						g_selectTagNameList = tagNameList.split(",");
+						
+						//获取配置勾选
+						var proChecked = RealtimeConfigInfo[i].ProChecked;
+						g_proChecked = proChecked.split(",");
+						
+						//获取配置内容
+						var proContent = RealtimeConfigInfo[i].ProContent;
+						g_proContent = proContent.split(",");
+						break;						
+					}
+				}
+			}
+			else
+			{				
+				var jsonstr = '[';   
+				for (var i = 0; i < g_vargroupList.length; i++)
+				{
+					//设置所有变量组默认配置信息
+					g_tagNameList = EnumTagNameListByVarGroupIndex(i);
+					FilterVarFromKingView();
+					
+					//变量个数限定8个
+					var SelectVarCount = 8;
+					var TagNameList = [];
+					if(g_tagNameList.length > SelectVarCount)
+					{
+						for(var j = 0; j < SelectVarCount; j++)
+						{
+							TagNameList.push(g_tagNameList[j]);
+						}
+					}
+					else
+					{
+						TagNameList = g_tagNameList;
+					}
+				
+					//设置当前变量组默认配置变量列表
+					if(i == g_selectedVarGroup)
+					{
+						g_selectTagNameList = TagNameList;
+					}
+
+					jsonstr += '{';  
+					jsonstr += "VarGroupIndex:'" + i + "',";
+					jsonstr += "TagNameList:'" + TagNameList+ "',";  
+					jsonstr += "ProChecked:'" + g_proChecked+ "',";  
+					jsonstr += "ProContent:'" + g_proContent + "'";
+					jsonstr += '}'  
+					jsonstr += ','  
+				}  
+				jsonstr = jsonstr.substring(0, jsonstr.length - 1);  
+				jsonstr += ']';  
+				window.sessionStorage.RealtimeGraphConfigInfo = jsonstr;	
+			}
+			
+			g_tagNameList = EnumTagNameListByVarGroupIndex(VarGroupIndex);
+			FilterVarFromKingView();
+			window.sessionStorage.RealtimeCurVarGroupTagList = g_tagNameList;
+		}
+		
+		//获取实时数据报表属性
+		function LoadReportProperty()
+		{	
+			//获取实时图表属性
+			var VarGroupIndex = window.sessionStorage.RealtimeSelectedVarGroup;
+			var object = window.sessionStorage.RealtimeReportConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var RealtimeConfigInfo = eval(object);
+				for(var i = 0; i < RealtimeConfigInfo.length; i++)
+				{
+					if(RealtimeConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{
+						//获取配置变量
+						var tagNameList = RealtimeConfigInfo[i].TagNameList;
+						g_selectTagNameList = tagNameList.split(",");
+						
+						//获取刷新频率
+						var refreshFrequence = RealtimeConfigInfo[i].RefreshFrequence;
+						g_refreshFrequence = refreshFrequence.split(",");
+						break;
+					}
+				}
+			}
+			else
+			{
+				var jsonstr = '[';   
+				for (var i = 0; i < g_vargroupList.length; i++)
+				{
+					//设置所有变量组默认配置信息
+					g_tagNameList = EnumTagNameListByVarGroupIndex(i);
+					var TagNameList = g_tagNameList;
+				
+					//设置当前变量组默认配置变量列表
+					if(i == g_selectedVarGroup)
+					{
+						g_selectTagNameList = TagNameList;
+					}
+
+					jsonstr += '{';  
+					jsonstr += "VarGroupIndex:'" + i + "',";
+					jsonstr += "TagNameList:'" + TagNameList+ "',";    
+					jsonstr += "RefreshFrequence:'" + g_refreshFrequence + "'";
+					jsonstr += '}'  
+					jsonstr += ','  
+				}  
+				jsonstr = jsonstr.substring(0, jsonstr.length - 1);  
+				jsonstr += ']';  
+				window.sessionStorage.RealtimeReportConfigInfo = jsonstr;	
+			}
+			
+			g_tagNameList = EnumTagNameListByVarGroupIndex(VarGroupIndex);
+			window.sessionStorage.RealtimeCurVarGroupTagList = g_tagNameList;
+		}
+		
+		//检测设备
+		function detectOS()
+		{
+			var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+			var isOpera = userAgent.indexOf("Opera") > -1;
+			if ((userAgent.indexOf("Opera") > -1) 
+				|| (userAgent.indexOf("Firefox") > -1)
+				|| (userAgent.indexOf("Chrome") > -1)
+				|| (userAgent.indexOf("Safari") > -1)
+				|| (userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1)) 
+			{
+				return false;
+			}
+		
+			//平台、设备和操作系统
+			var system = {
+				win : false,
+				mac : false,
+				xll : false
+			};
+			//检测平台
+			var p = navigator.platform;
+			system.win = p.indexOf("Win") == 0;
+			system.mac = p.indexOf("Mac") == 0;
+			system.x11 = (p == "X11") || (p.indexOf("Linux") == 0);
+
+			//跳转语句
+			if(system.win||system.mac||system.xll)
+			{
+				//转向后台登陆页面
+				return false;
+			}
+			else
+			{
+				return true;
+			}
+		}
+		
+		//报警通知
+		function OnAlarmNotify()
+		{
+			var strJson = GetRTAlarmDataFromKVAction();
+			if(strJson == "")
+			{
+				return;
+			}
+				
+			var obj = JSON.parse(strJson);
+			if (obj != null)
+			{
+				if (obj.Body.records != null)
+				{
+					var AlarmArray = [];
+					for(var i = 0; i < obj.Body.records.length; i++)
+					{
+						AlarmArray.push(obj.Body.records[i][4]);
+					}
+
+					var CurDate = new Date;
+					if(g_showmessage == "true")
+					{
+						var AlarmCount = 0;
+						var AlarmMessage = "您有-条新报警，请查看！";
+						for(var i = 0; i < AlarmArray.length; i++)
+						{
+							var AlarmDate = new Date(AlarmArray[i]).getTime();
+							var TimeInterval = (CurDate.getTime() - AlarmDate)/1000;
+							if( TimeInterval > 0 && TimeInterval < IntervalTime )
+							{
+								AlarmCount++;
+							}
+						}
+
+						var MessageCount = AlarmCount.toString();
+						if(MessageCount > 0)
+						{
+							AlarmMessage = AlarmMessage.replace("-", MessageCount);
+							cordova.plugins.notification.local.schedule({
+								date: new Date(),
+								message: AlarmMessage,
+								badge: 1,
+								id: alarmIndex,
+								sound:'sub.caf',
+								at:null,
+								background:'app.background()',
+								foreground:'app.running()'
+							});
+
+							if(g_beep == "true")
+							{
+								navigator.notification.beep(2);
+							}
+
+							if(g_vibration == "true")
+							{
+								navigator.notification.vibrate(2000);
+							}
+						}
+						alarmIndex++;
+					}
+				}
+			}	
+		}
+		
+		//获取实时报警属性
+		function LoadRealtimeAlarmProperty()
+		{
+			//获取实时图表属性
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			var object = window.sessionStorage.AlarmRealtimeConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var AlarmRealtimeConfigInfo = eval(object);
+				for(var i = 0; i < AlarmRealtimeConfigInfo.length; i++)
+				{
+					if(AlarmRealtimeConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{									
+						//优先级
+						g_priority = AlarmRealtimeConfigInfo[i].Priority;
+						break;						
+					}
+				}
+			}
+		}
+		
+		//获取报警数据
+		function GetRTAlarmDataFromKVAction()
+		{
+			//获取实时报警属性
+			LoadRealtimeAlarmProperty();	
+			var DataSourceName = "KV3";
+			var CommandType = "realtimealarmdata";
+			var StationName = g_stationName;	
+			var GroupName = g_selectAlarmGP;
+			var Alarmtype = 1;
+			var Eventtype = 2;
+			var Priority = g_priority;
+			if(typeof Priority != "undefined")
+			{
+				if(Priority < 1 || Priority > 999)
+				{
+					alert("优先级：请输入1~999之间的数字！");
+					return;
+				}
+			}
+			else
+			{
+				//设置默认查询条件
+				Priority = 1;
+			}
+			
+			var VarGroupName = window.sessionStorage.AlarmVarGroupName;
+			if(typeof VarGroupName == "undefined")
+			{
+				return;
+			}
+
+			var RetJson = "";
+			var QueryCondition = KmCreateJsonString_Condition_RealAlarm(StationName,GroupName,VarGroupName,Alarmtype,Eventtype,Priority);
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetRealAlarmDatas(g_userhandle,DataSourceName,CommandType,QueryCondition,function(JsonString_Result_KVRTAlarmDatas)
+			{
+				if(typeof JsonString_Result_KVRTAlarmDatas == "object")
+				{
+					if(typeof JsonString_Result_KVRTAlarmDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KVRTAlarmDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KVRTAlarmDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						RetJson = JsonString_Result_KVRTAlarmDatas;
+					}
+				}
+			});
+			return RetJson;
+		}
+		
+		//通过变量组索引获取变量列表
+		function EnumTagNameListByVarGroupIndex(VarGroupIndex)
+		{
+			var VarNameArray = [];
+			var AllVarGroupArray = EnumVarGroupFromKingView();
+			var szVarName = "";
+			var iIndex = 0;
+			for (var key in AllVarGroupArray)
+			{
+				if(iIndex == VarGroupIndex)
+				{
+					szVarName += AllVarGroupArray[key];
+					szVarName += ";";
+					break;
+				}
+				iIndex++;
+			}
+			VarNameArray = szVarName.split(";");
+
+			for (i = VarNameArray.length - 1;  i >0; i--)
+			{
+				if (VarNameArray[i] == "")
+				{
+					VarNameArray.splice(i, 1);
+				}
+			}
+			return VarNameArray;
+		}
+		
+		//变量组改变
+		function OnVarGroupChanged()
+		{
+			g_tagNameList.length = 0;
+			var VarGroupSelect = document.getElementById("vargroup").options;
+			var VarGroupIndex = VarGroupSelect.selectedIndex;
+			window.sessionStorage.RealtimeSelectedVarGroup = VarGroupIndex;
+			//刷新实时数据
+			RefreshRealtimeData();
+		}
+
+		//刷新实时数据
+		function RefreshRealtimeData()
+		{
+			//加载实时数据配置信息
+			LoadConfigInfo();
+
+			var object = window.sessionStorage.RealtimeType;
+			if(typeof object != "undefined")
+			{
+				if(object == "RealtimeReport")
+				{
+					ShowRealtimeReport();
+				}
+				else if(object == "RealtimeHistogram")
+				{
+					ShowRealtimeHistogram();
+				}
+				else
+				{
+					$("#histogramLabel").attr('checked',false).checkboxradio("refresh");
+					$("#pieLabel").attr('checked',true).checkboxradio("refresh");
+					ShowRealtimePie();
+				}
+			}
+			else
+			{
+				ShowRealtimeHistogram();
+			}
+		}
+
+		//获取变量组
+		function EnumVarGroupFromKingView()
+		{
+			var DataSourceName = "KV1";
+			var CommandType = "enumvargroup";
+			var EnumTagType = "Alltagname";
+			var AllVarGroupArray = [];
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetAllTagNameFromDataSource(g_userhandle, DataSourceName, CommandType,EnumTagType,function(JsonString_Result_KsRealtimeDatas)
+			{
+				if(typeof JsonString_Result_KsRealtimeDatas == "object")
+				{
+					if(typeof JsonString_Result_KsRealtimeDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KsRealtimeDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KsRealtimeDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						var TagNameobj = JSON.parse(JsonString_Result_KsRealtimeDatas);
+						AllVarGroupArray = TagNameobj.Body.VarGroup;
+					}
+				}
+			});
+			return AllVarGroupArray;
+		}
+
+		//变量类型过滤
+		function FilterVarFromKingView()
+		{
+			if(typeof g_tagNameList != "undefined")
+			{
+				if(g_tagNameList.length == 0)
+					return;
+			}
+			else
+			{
+				alert("变量校验失败");
+			}
+				
+			//实时图表不支持添加离散型和字符串型
+			var DataSourceName = "KV1";
+			var CommandType = "realdata";
+			var JsonString_Tags = KmCreateJsonString_Tags(g_tagNameList);
+			var iclient = new KM.ClientInterface;
+			var retJsonSting;
+			iclient.KmGetRealDatas(g_userhandle, DataSourceName, CommandType,JsonString_Tags,function(JsonString_Result_KsRealtimeDatas)
+			{
+				if(typeof JsonString_Result_KsRealtimeDatas == "object")
+				{
+					if(typeof JsonString_Result_KsRealtimeDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KsRealtimeDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KsRealtimeDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						retJsonSting = JsonString_Result_KsRealtimeDatas;
+					}
+				}
+			});
+
+			if(retJsonSting.length > 0)
+			{
+				var obj = JSON.parse(retJsonSting);
+				if (obj != null)
+				{
+					for (var i=0; i < obj.Body.tagNum; i++)
+					{
+						var tmpComment = {};
+						var i_tagName = obj.Body.records[i][0];
+						var i_tagType = obj.Body.records[i][1];
+						if(( i_tagType == "离散型") || (i_tagType == "字符串型"))
+						{
+							var index = $.inArray(i_tagName, g_tagNameList);
+							if (index >= 0)
+							{
+								g_tagNameList.splice(index, 1);
+							}	
+						}
+					}
+				}
+			}
+		}
+		
+		//获取变量可读可写属性
+		function GetVarPropertyFromKingView(VarName)
+		{
+			var bReadOnly = false;
+			var DataSourceName = "KV1";
+			var CommandType = "enumvarprop";
+			var EnumTagType = "Alltagname";
+			var AllVarGroupArray = [];
+			var AllVarProperty;
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetAllTagNameFromDataSource(g_userhandle, DataSourceName, CommandType, EnumTagType,function(JsonString_Result_KsRealtimeDatas)
+			{
+				if(typeof JsonString_Result_KsRealtimeDatas == "object")
+				{
+					if(typeof JsonString_Result_KsRealtimeDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KsRealtimeDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KsRealtimeDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						var TagNameobj = JSON.parse(JsonString_Result_KsRealtimeDatas);
+						AllVarGroupArray = TagNameobj.Body.VarGroup;
+						
+						var VarGroupName = $('#vargroup option:selected').text();
+						for(var key in AllVarGroupArray)
+						{
+							if(key == VarGroupName)
+							{
+								AllVarProperty = AllVarGroupArray[VarGroupName];
+								break;
+							}
+						}
+					}
+				}
+			});
+				
+			for(var key in AllVarProperty)
+			{
+				if(key == VarName)
+				{
+					bReadOnly = AllVarProperty[key];
+					break;
+				}	
+			}
+			return bReadOnly;
+		}
+
+		//更新界面
+		function KMRealtimeGraph(){
+			var HistogramChecked = document.getElementById("histogramLabel").checked;
+			if(HistogramChecked == true)
+			{
+				window.sessionStorage.RealtimeType = "RealtimeHistogram";
+			}
+			else
+			{
+				window.sessionStorage.RealtimeType = "RealtimePie";
+			}
+			RefreshRealtimeData();
+		}
+
+		//更新界面
+		function KMRealtimeReport(){
+			window.sessionStorage.RealtimeType = "RealtimeReport";
+			RefreshRealtimeData();
+		}
+
+		//实时报表显示
+		function ShowRealtimeReport()
+		{
+			if(g_selectTagNameList.length==0)
+			{
+				return;
+			}
+			var realTable = document.getElementById("realtimeValueTable");
+			var retVal = GetRealDataFromKVAction(g_selectTagNameList);
+			var resultHtml = RealtimeCreateTableinnerHtmlString(retVal,g_tagTableColumn);
+			realTable.innerHTML = resultHtml;
+			if(g_refreshFrequence > 0)
+			{
+				setTimeout("ShowRealtimeReport();",g_refreshFrequence * 1000);
+			}
+
+			if(retVal.length > 0)
+			{
+				SetGlobalTagInfo(retVal);
+			}
+			$("tr").on("taphold",function(evt)
+			{
+				g_selectTableRow = evt.currentTarget.rowIndex;
+				if(g_selectTableRow != 0)
+				{
+					SetTagValue(g_selectTableRow);
+				}
+			});
+			OnTab(1);
+		}
+
+		function SetGlobalTagInfo(strJson)
+		{
+			var obj = JSON.parse(strJson);
+			if (obj != null)
+			{
+				for (var i=0; i < obj.Body.tagNum; i++)
+				{
+					var tmpComment = [];
+					tmpComment[0]=obj.Body.records[i][0];
+					tmpComment[1]=obj.Body.records[i][1];
+					tmpComment[2]=obj.Body.records[i][2];
+					tmpComment[3]=obj.Body.records[i][6][0];
+					tmpComment[4]=obj.Body.records[i][6][2];
+					g_tagBasicInfo[i]=tmpComment;
+				}
+			}
+		}
+
+		function SetTagValue(clickIndex)
+		{
+			if(clickIndex <= 0)
+			{
+				return;
+			}
+			var selectTagBasicInfo = g_tagBasicInfo[clickIndex -1];
+			window.sessionStorage.selectTagBasicInfo = selectTagBasicInfo;
+			
+			var bReadOnly = GetVarPropertyFromKingView(selectTagBasicInfo[0]);
+			if(bReadOnly)
+			{
+				alert("用户没有该变量写值权限");
+				return;
+			}
+			else
+			{
+				window.location ="kingview_realtime_report_setvalue.html";
+			}
+		}
+
+		//柱状图显示
+		function ShowRealtimeHistogram()
+		{
+			if(g_selectTagNameList.length==0)
+			{
+				return;
+			}
+
+			var retVal = GetRealDataFromKVAction(g_selectTagNameList);
+			if(typeof retVal == "undefined")
+			{
+				return;
+			}
+			var myChart = echarts.init(document.getElementById("analysisDiv"));
+
+			//获取标题信息
+			var legandName = [];
+			var legandData = [];
+			var dataTime = [];
+			var realData = [];
+			var realSeries = [];
+			var obj = JSON.parse(retVal);
+			if (obj != null)
+			{
+				if(obj.Body.tagNum > 8)
+				{
+					obj.Body.tagNum = 8;
+				}
+				
+				//填充内容
+				for (var i = 0; i < obj.Body.tagNum; i++)
+				{
+					legandName[i] = obj.Body.records[i][0];
+					legandData[i] = obj.Body.records[i][0];
+				}
+				for(var i=0; i < obj.Body.tagNum; i++)
+				{
+					realData[i] = obj.Body.records[i][6][0];
+				}
+				//填充数据
+				for (var i = 0; i < obj.Body.tagNum; i++)
+				{
+					realSeries[i] ={
+						name:legandData[i],type:'bar',barCategoryGap: '50%',  itemStyle:
+						{
+							normal: {
+									label : { show: true, position: 'top'}
+									},
+							},
+							data:[realData[i]]
+						};
+					};
+				}
+				//设置属性
+				var titleName = "";
+				if(g_proChecked[0] == "true")
+				{
+					titleName = g_proContent[0];
+				}
+				//图列
+				if(g_proChecked[1] != "true")
+				{
+					legandName = [];
+				}
+				//X轴
+				var xAxisName = ""
+				if(g_proChecked[2] == "true")
+				{
+					xAxisName = g_proContent[1];
+				}
+				//y轴
+				var YAxisName = ""
+				if(g_proChecked[3] == "true")
+				{
+					YAxisName = g_proContent[2];
+				}
+				//数据标签
+				var bShowDataLabel = false;
+				if(g_proChecked[4] == "true")
+				{
+					bShowDataLabel = true;
+				}
+
+				option = {
+					title : {
+						text: titleName,
+						x:'center'
+					},
+					tooltip : {
+						show:bShowDataLabel,
+						trigger: 'item',
+						formatter: "{a} : {c}"
+					},
+					legend : {
+						data:legandName,
+							orient:'vertical',
+							x : 'right',
+							y : 'center'
+					},
+					toolbox : {
+						show : false,
+							itemGap: 20,
+							itemSize: 20,
+							feature : {
+								restore : {show: true,title:'刷新'},
+								saveAsImage : {show: true}
+							}
+					},
+					xAxis : [
+						{
+							type : 'category',
+							data :[""],
+							name: xAxisName
+						}
+					],
+					yAxis : [
+						{
+							type : 'value',
+							name:YAxisName
+						}
+					],
+					series :realSeries
+				};
+
+				//为echarts对象加载数据
+				myChart.setOption(option);
+				//重新获取变量实时数据
+				myChart.on("restore", function (param)
+				{
+					//图表清空
+					myChart.clear();
+
+					//图表释放
+					myChart.dispose();
+					ShowRealtimeHistogram();
+				}
+			);
+			window.sessionStorage.RealtimeType = "RealtimeHistogram";
+			OnTab(0);
+		}
+
+		//饼图显示
+		function ShowRealtimePie()
+		{
+			if(g_selectTagNameList.length==0)
+			{
+				return;
+			}
+			var retVal = GetRealDataFromKVAction(g_selectTagNameList);
+			var myChart = echarts.init(document.getElementById("analysisDiv"));
+			var legandName = [];
+			var realDataPie = [];
+			var obj = JSON.parse(retVal);
+			if (obj != null)
+			{
+				if(obj.Body.tagNum > 8)
+				{
+					obj.Body.tagNum = 8;
+				}
+				//填充内容
+				for (var i = 0; i < obj.Body.tagNum; i++)
+				{
+					legandName[i] = obj.Body.records[i][0];
+					var tmpAarry={};
+					tmpAarry["value"] = obj.Body.records[i][6][0];
+					tmpAarry["name"] = obj.Body.records[i][0];
+					realDataPie[i] = tmpAarry;
+				}
+			}
+
+			//设置属性
+			var titleName = "";
+			if(g_proChecked[0] == "true")
+			{
+				titleName = g_proContent[0];
+			}
+			//图列
+			if(g_proChecked[1] != "true")
+			{
+				legandName = [];
+			}
+			//X轴
+			var xAxisName = ""
+			if(g_proChecked[2] == "true")
+			{
+				xAxisName = g_proContent[1];
+			}
+			//y轴
+			var YAxisName = ""
+			if(g_proChecked[3] == "true")
+			{
+				YAxisName = g_proContent[2];
+			}
+			//数据标签
+			var bShowDataLabel = false;
+			if(g_proChecked[4] == "true")
+			{
+				bShowDataLabel = true;
+			}
+
+			option = {
+			title : {
+				text: titleName,
+				x:'center'
+			},
+			tooltip : {
+				show:bShowDataLabel,
+				trigger: 'item',
+				formatter: "{a} <br/>{b} : {c} ({d}%)"
+			},
+			legend: {
+				orient:'vertical',
+				x : 'right',
+				y : 'center',
+				data:legandName
+			},
+			toolbox: {
+				show : false,
+				itemGap: 20,
+				itemSize: 20,
+				feature : {
+					restore : {show: true,title:'刷新'},
+					saveAsImage : {show: true}
+				}
+			},
+
+			series : [
+				{
+					type:'pie',
+					radius : '55%',
+					center: ['50%', '45%'],
+					data:realDataPie
+				}
+			]};
+			//为echarts对象加载数据
+			myChart.setOption(option);
+			//重新获取变量实时数据
+			myChart.on("restore", function (param)
+			{
+				//图表清空
+				myChart.clear();
+
+				//图表释放
+				myChart.dispose();
+				OnDataAnalysisPie();
+			});
+			window.sessionStorage.RealtimeType = "RealtimePie";
+			OnTab(0);
+		}
+
+		//实时数据配置
+		function KMRealtimeDataSetting()
+		{
+			var object = window.sessionStorage.RealtimeType;
+			if(typeof object != "undefined")
+			{
+				if(object == "RealtimeReport")
+				{
+					window.location ="kingview_realtime_report_setfrequency.html";
+				}
+				else
+				{
+					window.location ="kingview_realtime_graph_setproperty.html";
+				}
+			}
+			else
+			{
+				window.location ="kingview_realtime_graph_setproperty.html";
+			}
+		}
+
+		//实时数据
+		function KMRealtimeData()
+		{
+			window.location ="kingview_realtimedata_page.html";
+		}
+
+		//历史数据
+		function KMHistoryData()
+		{
+			window.location ="kingview_historydata_page.html";
+		}
+
+		//报警数据
+		function KMAlarmData()
+		{
+			window.location ="kingview_alarmdata_page.html";
+		}
+
+		//系统设置
+		function KMSystermConfig()
+		{
+			window.location ="kingview_setting_page.html";
+		}
+		</script>
+
+		<style type="text/css">
+		body{margin: 0;padding: 0;}
+		*{margin: 0;padding: 0}
+		</style>
+
+		<script language=javascript>
+		if (screen.width < 800)
+		{
+			document.write('<link rel=stylesheet type="text/css" href="./js/css800.css">')
+		}
+		else
+		{
+			document.write('<link rel=stylesheet type="text/css" href="./js/css1024.css">')
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="realtimedata_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<table style="width:100%">
+					<tr align="center">						
+						<td>
+							<select id="vargroup" data-native-menu="false" onchange="OnVarGroupChanged()">
+								<option>选择变量组</option>
+							</select>
+						</td>
+						
+						<td style="position:absolute;float:left;left:2%;margin-top:15px;">
+							<input type="image" id="KMSettingBtn" src="../images/setting.png" onclick="KMRealtimeDataSetting()">
+						</td>
+
+						<td style="position:absolute;float:right;right:2%;margin-top:15px;">
+							<input type="image" id="KMRefreshBtn" src="../images/refresh.png" onclick="RefreshRealtimeData()">
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="wrap" id="wrap">
+				<ul class="tabClick">
+					<li class="active">实时图表</li>
+					<li>实时报表</li>
+				</ul>
+
+				<div class="lineBorder">
+					<div class="lineDiv"></div>
+				</div>
+
+				<div class="container">
+					<div class="tabCon">
+						<div class="tabBox">
+							<div class="tabList">
+								<div id="dataGraphDiv">
+									<div id="dataAnlysisTabDiv" style="float:right;position:relative;right:2%;">
+										<fieldset data-role="controlgroup"  data-type="horizontal">
+											<label style="font-size: 12px;" for="histogramLabel">柱状图</label>
+											<input type="radio" name="radiodataGraph" id="histogramLabel" checked="checked" onchange="ShowRealtimeHistogram()">
+											<label style="font-size: 12px;"for="pieLabel">饼图</label>
+											<input type="radio" name="radiodataGraph" id="pieLabel" onchange="ShowRealtimePie()">
+										</fieldset>
+									</div>
+								</div>
+								
+								<div id="analysisDiv" style="width:98%;height:400px;"></div>
+							</div>
+
+							<div class="tabList">
+								<div data-role="fieldcontain">
+									<div style="width:98%;padding-top:10px;padding-left:1%;overflow:scroll;height:400px;" id="tableDiv">
+										<table id ="realtimeValueTable" data-role="table fieldcontain" data-mode="columntoggle" style="width:100%;"></table>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div data-role="footer" id="KMFooter" data-position="fixed" data-tap-toggle="false">
+				<ul id="Navi">
+					<li class="active"><a onclick="KMRealtimeData()"><img src="../images/realtimedata_selected.png" width="30" height="30"><span style="color:#D43C33;font-size: 12px">实时数据</span></a></li>
+					<li><a onclick="KMHistoryData()"><img src="../images/historydata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">历史数据</span></a></li>
+					<li><a onclick="KMAlarmData()"><img src="../images/alarmdata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">报警数据</span></a></li>
+					<li><a onclick="KMSystermConfig()"><img src="../images/setting_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">设置</span></a></li>
+				</ul>
+			</div>
+		</div>
+	</body>
+</html>

@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/easyui/default/easyui.css"/>
+		<link rel="stylesheet" type="text/css" href="../thirdpart/easyui/icon.css" />
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_realtime.js"></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../js/kmresultjsonparse_history.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery-easyui-1.4.3/jquery.easyui.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/html2canvas/html2canvas.js"></script>
+		
+		<style type="text/css">
+		.ui-btn {
+			font-size: 12px;
+			margin: .3em 0;
+		}
+		body{margin: 0;padding: 0;}
+		*{margin: 0;padding: 0}
+		</style>
+
+		<script type="text/javascript">
+		var alarmIndex = 0;
+		var g_showmessage;
+		var g_beep;
+		var g_vibration;
+		var IntervalTime = 5;
+		var g_userhandle;
+		var g_publickey;
+		var g_newAlarmShow;
+		var g_refreshAlarm;
+		var g_priority;
+		var g_selectAlarmGP = "RootNode";
+		var g_stationName = "local";
+		var g_vargroupList=[];
+		var g_selectedVarGroup;
+		var g_startTime;
+		var g_endTime;
+		var g_tabIndex = 0;
+
+		$(document).on("pageinit", "#alarmdata_page", function()
+		{
+			g_userhandle = window.sessionStorage.userhandle;
+			g_publickey = window.sessionStorage.publickey;
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+		});
+
+		window.onload=function()
+		{
+			//加载报警数据变量组信息
+			LoadVarGroupInfo();
+			
+			//初始化报警数据TAB页
+			InitAlarmDataTab();
+
+			//检测设备
+			var IsMobile = detectOS();
+			if(IsMobile == true)
+			{
+				var CordovaHead = document.getElementsByTagName("head")[0];
+				var CordovaScript = document.createElement("script");
+				CordovaScript.type = "text/javascript";
+				CordovaScript.src = "../cordova.js";
+				CordovaHead.appendChild(CordovaScript);
+
+				var IndexHead = document.getElementsByTagName("head")[0];
+				var IndexScript = document.createElement("script");
+				IndexScript.type = "text/javascript";
+				IndexScript.src = "../js/index.js";
+				IndexHead.appendChild(IndexScript);
+
+				g_showmessage = window.sessionStorage.g_showmessage;
+				g_showmessageinfo = window.sessionStorage.g_showmessageinfo;
+				g_beep = window.sessionStorage.g_beep;
+				g_vibration = window.sessionStorage.g_vibration;
+				if(g_showmessage == "true")
+				{
+					setInterval("OnAlarmNotify()",3000);
+				}
+			}
+
+			//刷新报警数据
+			RefreshAlarmData();
+		}
+
+		//初始化报警数据TAB页
+		function InitAlarmDataTab()
+		{
+			var windowWidth = document.body.clientWidth;
+			var wrap = document.getElementById('wrap');
+			var tabClick = wrap.querySelectorAll('.tabClick')[0];
+			var tabLi = tabClick.getElementsByTagName('li');
+
+			var tabBox =  wrap.querySelectorAll('.tabBox')[0];
+			var tabList = tabBox.querySelectorAll('.tabList');
+			var lineBorder = wrap.querySelectorAll('.lineBorder')[0];
+			var lineDiv = lineBorder.querySelectorAll('.lineDiv')[0];
+
+			var tar = 0;
+			var endX = 0;
+			var dist = 0;
+
+			tabBox.style.overflow='hidden';
+			tabBox.style.position='absolute';
+			tabBox.style.width=windowWidth*tabList.length+"px";
+			tabBox.style.height = 500+"px";
+
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				  tabList[i].style.width=windowWidth+"px";
+				  tabList[i].style.float='left';
+				  tabList[i].style.float='left';
+				  tabList[i].style.padding='0';
+				  tabList[i].style.margin='0';
+				  tabList[i].style.verticalAlign='top';
+				  tabList[i].style.display='table-cell';
+			}
+
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				tabLi[i].start = i;
+				tabLi[i].onclick = function(){
+					var star = this.start;
+					var AlarmType = window.sessionStorage.alarmtype;
+					if(typeof AlarmType != "undefined")
+					{
+						if(AlarmType == "RealtimeAlarm")
+						{
+							if(star == 0)
+								return;
+						}
+						else
+						{
+							if(star == 1)
+								return;
+						}
+					}
+					
+					for(var i = 0 ;i<tabLi.length; i++ ){
+						tabLi[i].className='';
+					};
+					tabLi[star].className='active';
+					init.lineAnme(lineDiv,windowWidth/tabLi.length*star)
+					init.translate(tabBox,windowWidth,star);
+					endX= -star*windowWidth;
+					
+					if(star == 0)
+					{
+						KMRealtimeAlarm();
+					}
+					if(star == 1)
+					{
+						KMHistoryAlarm();
+					}
+				}
+			}
+
+			tabBox.addEventListener('touchstart',chstart,false);
+			//按下
+			function chstart(ev){
+				ev.preventDefault;
+				var touch = ev.touches[0];
+				tar=touch.pageX;
+				tabBox.style.webkitTransition='all 0s ease-in-out';
+				tabBox.style.transition='all 0s ease-in-out';
+			};
+		}
+
+		function OnTab(star){
+			var windowWidth = document.body.clientWidth;
+			var wrap = document.getElementById('wrap');
+			var tabClick = wrap.querySelectorAll('.tabClick')[0];
+			var tabLi = tabClick.getElementsByTagName('li');
+
+			var tabBox =  wrap.querySelectorAll('.tabBox')[0];
+			var tabList = tabBox.querySelectorAll('.tabList');
+			var lineBorder = wrap.querySelectorAll('.lineBorder')[0];
+			var lineDiv = lineBorder.querySelectorAll('.lineDiv')[0];
+
+			if(star<0){
+				star=0;
+			}else if(star>=tabLi.length){
+				star=tabLi.length-1
+			}
+			for(var i = 0 ;i<tabLi.length; i++ ){
+				tabLi[i].className='';
+			};
+
+			tabLi[star].className='active';
+			init.translate(tabBox,windowWidth,star);
+			init.lineAnme(lineDiv,windowWidth/tabLi.length*star);
+		};
+
+		var init = {
+			translate:function(obj,windowWidth,star){
+				obj.style.webkitTransform='translate3d('+-star*windowWidth+'px,0,0)';
+				obj.style.transform='translate3d('+-star*windowWidth+',0,0)px';
+				obj.style.webkitTransition='all 0.3s ease-in-out';
+				obj.style.transition='all 0.3s ease-in-out';
+			},
+			touchs:function(obj,windowWidth,tar,distance,endX){
+				obj.style.webkitTransform='translate3d('+(distance+endX)+'px,0,0)';
+				obj.style.transform='translate3d('+(distance+endX)+',0,0)px';
+			},
+			lineAnme:function(obj,stance){
+				obj.style.webkitTransform='translate3d('+stance+'px,0,0)';
+				obj.style.transform='translate3d('+stance+'px,0,0)';
+				obj.style.webkitTransition='all 0.1s ease-in-out';
+				obj.style.transition='all 0.1s ease-in-out';
+			},
+			back:function(obj,windowWidth,tar,distance,endX,time){
+				obj.style.webkitTransform='translate3d('+(distance+endX)+'px,0,0)';
+				obj.style.transform='translate3d('+(distance+endX)+',0,0)px';
+				obj.style.webkitTransition='all '+time+'s ease-in-out';
+				obj.style.transition='all '+time+'s ease-in-out';
+			},
+		}
+
+		//加载变量组信息
+		function LoadVarGroupInfo()
+		{
+			//加载变量组
+			var VarGroupOption;
+			var AlarmVarGroupList = window.sessionStorage.AlarmVarGroupList;
+			if(typeof AlarmVarGroupList == "undefined")
+			{
+				var AllVarGroupArray = EnumVarGroupFromKingView();
+				if(AllVarGroupArray == "")
+				{
+					return;
+				}
+
+				//设置变量组值
+				var VarGroupIndex = 0;
+				for (var key in AllVarGroupArray)
+				{
+					var VarGroupName = key;
+					g_vargroupList[VarGroupIndex] = VarGroupName;
+					VarGroupOption += "<option value=" + VarGroupIndex + ">" + VarGroupName + "</option>";
+					VarGroupIndex++;
+				}
+			}
+			else
+			{
+				//设置变量组值
+				var AllVarGroupArray = AlarmVarGroupList.split(",");
+				if(AllVarGroupArray == "")
+				{
+					return;
+				}
+
+				for (var i = 0; i < AllVarGroupArray.length; i++)
+				{
+					var VarGroupName = AllVarGroupArray[i];
+					g_vargroupList[i] = VarGroupName;
+					VarGroupOption += "<option value=" + i + ">" + VarGroupName + "</option>";
+				}
+			}
+			$("#vargroup").html(VarGroupOption);
+			window.sessionStorage.AlarmVarGroupList = g_vargroupList;
+
+			//设置当前变量组
+			g_selectedVarGroup = window.sessionStorage.AlarmSelectedVarGroup;
+			if(typeof g_selectedVarGroup == "undefined")
+			{
+				g_selectedVarGroup = 0;
+				window.sessionStorage.AlarmSelectedVarGroup = g_selectedVarGroup;
+			}
+			var VarGroupSelect = $("select#vargroup");
+			VarGroupSelect[0].selectedIndex = g_selectedVarGroup;
+			VarGroupSelect.selectmenu("refresh");
+			window.sessionStorage.AlarmVarGroupName = $('#vargroup option:selected').text();
+		}
+
+		//加载配置信息
+		function LoadConfigInfo()
+		{
+			var AlarmType = window.sessionStorage.alarmtype;
+			if(typeof AlarmType != "undefined")
+			{
+				if(AlarmType == "RealtimeAlarm")
+				{
+					LoadRealtimeAlarmProperty();
+				}
+				else
+				{
+					LoadHistoryAlarmProperty();
+				}
+			}
+			else
+			{
+				LoadRealtimeAlarmProperty();
+				window.sessionStorage.alarmtype = "RealtimeAlarm";
+			}	
+		}
+		
+		//获取实时报警属性
+		function LoadRealtimeAlarmProperty()
+		{
+			//获取实时图表属性
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			var object = window.sessionStorage.AlarmRealtimeConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var AlarmRealtimeConfigInfo = eval(object);
+				for(var i = 0; i < AlarmRealtimeConfigInfo.length; i++)
+				{
+					if(AlarmRealtimeConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{									
+						//优先级
+						g_priority = AlarmRealtimeConfigInfo[i].Priority;
+						
+						//新报警显示
+						g_newAlarmShow = AlarmRealtimeConfigInfo[i].NewAlarmShow;
+						
+						//自动刷新实时报警
+						g_refreshAlarm = AlarmRealtimeConfigInfo[i].RefreshAlarm;
+						if(typeof g_refreshAlarm != "undefined")
+						{
+							if(g_refreshAlarm == "true")
+							{
+								var strJson = GetRTAlarmDataFromKVAction();
+								RealTimeAlarmTable(strJson);
+								window.sessionStorage.RTAlarmInfo = strJson;
+								setTimeout("OnRefreshAlarm()",2000);
+							}
+						}
+						break;						
+					}
+				}
+			}
+			else
+			{	
+				//设置默认配置信息
+				var priority = 1;
+				var bNewAlarmShow = true;
+				var bRefreshAlarm = true;
+				
+				var jsonstr = '[';   
+				for (var i = 0; i < g_vargroupList.length; i++)
+				{
+					jsonstr += '{';  
+					jsonstr += "VarGroupIndex:'" + i + "',"; 
+					jsonstr += "Priority:'" + priority+ "',";  
+					jsonstr += "NewAlarmShow:'" + bNewAlarmShow + "',";
+					jsonstr += "RefreshAlarm:'" + bRefreshAlarm + "'";
+					jsonstr += '}'  
+					jsonstr += ','  
+				}  
+				jsonstr = jsonstr.substring(0, jsonstr.length - 1);  
+				jsonstr += ']';  
+				window.sessionStorage.AlarmRealtimeConfigInfo = jsonstr;	
+			}
+		}
+		
+		//获取历史报警属性
+		function LoadHistoryAlarmProperty()
+		{	
+			//获取历史报警属性
+			var VarGroupIndex = window.sessionStorage.AlarmSelectedVarGroup;
+			var object = window.sessionStorage.AlarmHistoryConfigInfo;
+			if(typeof object != "undefined")
+			{
+				var AlarmHistoryConfigInfo = eval(object);
+				for(var i = 0; i < AlarmHistoryConfigInfo.length; i++)
+				{
+					if(AlarmHistoryConfigInfo[i].VarGroupIndex == VarGroupIndex)
+					{	
+						//获取查询条件
+						var HistoryQueryCondition = AlarmHistoryConfigInfo[i].HistoryQueryCondition;		
+						var QueryCondition = HistoryQueryCondition.split(",");
+						g_startTime = QueryCondition[0];
+						g_endTime = QueryCondition[1];
+						g_priority = QueryCondition[2];
+						break;
+					}
+				}
+			}
+			else
+			{
+				//设置默认配置信息
+				var HistoryQueryCondition = [];
+				g_priority = 1;
+				var date = new Date();
+				g_endTime = date.getFullYear()+"-"+(date.getMonth()+1)+"-"+date.getDate()+" "+date.getHours()+":"+date.getMinutes() + ":" + date.getSeconds();
+				date.setDate(date.getDate()-1);
+				g_startTime = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+				var QueryType = "SpecificQuery";
+				var SpecificOption = 1;
+				HistoryQueryCondition[0] = g_startTime;
+				HistoryQueryCondition[1] = g_endTime;
+				HistoryQueryCondition[2] = g_priority;
+				HistoryQueryCondition[3] = QueryType;
+				HistoryQueryCondition[4] = SpecificOption;
+			
+				var jsonstr = '[';   
+				for (var i = 0; i < g_vargroupList.length; i++)
+				{
+					jsonstr += '{';  
+					jsonstr += "VarGroupIndex:'" + i + "',"; 
+					jsonstr += "HistoryQueryCondition:'" + HistoryQueryCondition + "'";
+					jsonstr += '}'  
+					jsonstr += ','  
+				}  
+				jsonstr = jsonstr.substring(0, jsonstr.length - 1);  
+				jsonstr += ']';  
+				window.sessionStorage.AlarmHistoryConfigInfo = jsonstr;	
+			}
+		}
+
+		//检测设备
+		function detectOS()
+		{
+			var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+			var isOpera = userAgent.indexOf("Opera") > -1;
+			if ((userAgent.indexOf("Opera") > -1) 
+				|| (userAgent.indexOf("Firefox") > -1)
+				|| (userAgent.indexOf("Chrome") > -1)
+				|| (userAgent.indexOf("Safari") > -1)
+				|| (userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1)) 
+			{
+				return false;
+			}
+		
+			//平台、设备和操作系统
+			var system = {
+				win : false,
+				mac : false,
+				xll : false
+			};
+			//检测平台
+			var p = navigator.platform;
+			system.win = p.indexOf("Win") == 0;
+			system.mac = p.indexOf("Mac") == 0;
+			system.x11 = (p == "X11") || (p.indexOf("Linux") == 0);
+
+			//跳转语句
+			if(system.win||system.mac||system.xll)
+			{
+				//转向后台登陆页面
+				return false;
+			}
+			else
+			{
+				return true;
+			}
+		}
+
+		//获取变量组
+		function EnumVarGroupFromKingView()
+		{
+			var DataSourceName = "KV1";
+			var CommandType = "enumvargroup";
+			var EnumTagType = "Alltagname";
+			var AllVarGroupArray = [];
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetAllTagNameFromDataSource(g_userhandle, DataSourceName, CommandType,EnumTagType,function(JsonString_Result_KsRealtimeDatas)
+			{
+				if(typeof JsonString_Result_KsRealtimeDatas == "object")
+				{
+					if(typeof JsonString_Result_KsRealtimeDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KsRealtimeDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KsRealtimeDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						var TagNameobj = JSON.parse(JsonString_Result_KsRealtimeDatas);
+						AllVarGroupArray = TagNameobj.Body.VarGroup;
+					}
+				}
+			});
+			return AllVarGroupArray;
+		}
+
+		//获取报警数据
+		function GetRTAlarmDataFromKVAction()
+		{
+			var DataSourceName = "KV3";
+			var CommandType = "realtimealarmdata";
+			var StationName = g_stationName;	
+			var GroupName = g_selectAlarmGP;
+			var VarGroupName = $('#vargroup option:selected').text();
+			var Alarmtype = 1;
+			var Eventtype = 2;
+			var Priority = g_priority;
+			if(typeof Priority != "undefined")
+			{
+				if(Priority < 1 || Priority > 999)
+				{
+					alert("优先级：请输入1~999之间的数字！");
+					return;
+				}
+			}
+			else
+			{
+				//设置默认查询条件
+				Priority = 1;
+			}
+
+			var RetJson = "";
+			var QueryCondition = KmCreateJsonString_Condition_RealAlarm(StationName,GroupName,VarGroupName,Alarmtype,Eventtype,Priority);
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetRealAlarmDatas(g_userhandle,DataSourceName,CommandType,QueryCondition,function(JsonString_Result_KVRTAlarmDatas)
+			{
+				if(typeof JsonString_Result_KVRTAlarmDatas == "object")
+				{
+					if(typeof JsonString_Result_KVRTAlarmDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KVRTAlarmDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KVRTAlarmDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+						RetJson = JsonString_Result_KVRTAlarmDatas;
+					}
+				}
+			});
+			return RetJson;
+		}
+
+		//获取历史报警数据
+		function GetHisAlarmDataFromKVAction()
+		{
+			var DataSourceName = "KV3";
+			var CommandType = "historyalarmdata";
+			var Alarmtype = 1;
+			var Eventtype = 2;
+			var StationName = g_stationName;	
+			var GroupName = g_selectAlarmGP;
+			var VarGroupName = $('#vargroup option:selected').text();
+			var StartTime = g_startTime;
+			var EndTime = g_endTime;
+			var Priority = g_priority;
+			var TabIndex = g_tabIndex;
+
+			if(typeof Priority == "undefined" || typeof StartTime == "undefined"||typeof EndTime == "undefined")
+			{
+				alert("历史报警查询条件错误");
+				return;
+			}
+			
+			var HistAlarmJson = "";
+			var QueryCondition = KmCreateJsonString_Condition_HistoryAlarm(StationName,GroupName,VarGroupName,StartTime,EndTime,Alarmtype,Eventtype,Priority,TabIndex);
+			var iclient = new KM.ClientInterface;
+			iclient.KmGetHistoryAlarmDatas(g_userhandle,DataSourceName,CommandType,QueryCondition,function(JsonString_Result_KVHisAlarmDatas)
+			{
+			   if(typeof JsonString_Result_KVHisAlarmDatas == "object")
+				{
+					if(typeof JsonString_Result_KVHisAlarmDatas.responseText != "undefined")
+					{
+						alert(JsonString_Result_KVHisAlarmDatas.responseText);
+					}
+					else
+					{
+						alert("未定义错误");
+					}
+				}
+				else
+				{
+					var ret = JsonString_Result_KVHisAlarmDatas.split(":");
+					if( ret[0] == "failed")
+					{
+						alert(ret[1]);
+						if(ret[1] == "用户没有登录或者在其他地方登录，请重新登录！")
+						{
+							window.sessionStorage.userhandle = 0;
+							window.sessionStorage.publickey = "";
+							window.location = "../login.html";
+						}
+					}
+					else
+					{
+					   HistAlarmJson = JsonString_Result_KVHisAlarmDatas;
+					}
+				}
+			});
+			return HistAlarmJson;
+		}
+
+		//报警通知
+		function OnAlarmNotify()
+		{
+			var strJson = GetRTAlarmDataFromKVAction();
+			RealTimeAlarmTable(strJson);
+			window.sessionStorage.RTAlarmInfo = strJson;
+
+			var CurDate = new Date;
+			var AlarmArray = $('#realtimetabledatadiv').datagrid('getData').rows;
+
+			if(g_showmessage == "true")
+			{
+				var AlarmCount = 0;
+				var AlarmMessage = "您有-条新报警，请查看！";
+				for(var i = 0; i < AlarmArray.length; i++)
+				{
+					var AlarmDate = new Date(AlarmArray[i].d).getTime();
+					var TimeInterval = (CurDate.getTime() - AlarmDate)/1000;
+					if( TimeInterval > 0 && TimeInterval < IntervalTime )
+					{
+						AlarmCount++;
+					}
+				}
+
+				var MessageCount = AlarmCount.toString();
+				if(MessageCount > 0)
+				{
+					AlarmMessage = AlarmMessage.replace("-", MessageCount);
+					cordova.plugins.notification.local.schedule({
+						date: new Date(),
+						message: AlarmMessage,
+						badge: 1,
+						id: alarmIndex,
+						sound:'sub.caf',
+						at:null,
+						background:'app.background()',
+						foreground:'app.running()'
+					});
+
+					if(g_beep == "true")
+					{
+						navigator.notification.beep(2);
+					}
+
+					if(g_vibration == "true")
+					{
+						navigator.notification.vibrate(2000);
+					}
+				}
+				alarmIndex++;
+			}
+		}
+
+		//刷新报警数据
+		function RefreshAlarmData()
+		{
+			//加载报警数据配置信息
+			LoadConfigInfo();
+		
+			var object = window.sessionStorage.alarmtype;
+			if(typeof object != "undefined")
+			{
+				if(object == "RealtimeAlarm")
+				{
+					ShowRealtimeAlarm();
+				}
+				else
+				{
+					ShowHistoryAlarm();
+				}
+			}
+			else
+			{
+				ShowRealtimeAlarm();
+			}
+			var VarGroupSelect = document.getElementById("vargroup").options;
+			var VarGroupIndex = VarGroupSelect.selectedIndex;
+			window.sessionStorage.AlarmSelectedVarGroup = VarGroupIndex;
+			window.sessionStorage.AlarmVarGroupName = $('#vargroup option:selected').text();
+		}
+
+		//实时报警刷新
+		function ShowRealtimeAlarm()
+		{
+			var AlarmObject = GetAlarmGroupFromKVAction();
+			if(AlarmObject != "")
+			{
+				var strJson = GetRTAlarmDataFromKVAction();
+				RealTimeAlarmTable(strJson);
+				window.sessionStorage.RTAlarmInfo = strJson;
+				OnTab(0);
+			}
+		}
+
+		//历史报警刷新
+		function ShowHistoryAlarm()
+		{
+			var AlarmObject = GetAlarmGroupFromKVAction();
+			if(AlarmObject != "")
+			{
+				var alarmDetail = window.sessionStorage.alarmdetail;
+				if(typeof alarmDetail != undefined)
+				{
+					if(alarmDetail == "true")
+					{
+						g_tabIndex = window.localStorage.tableindex;
+						var strJson = window.sessionStorage.HisAlarmInfo;
+						HistoryAlarmTable(strJson);
+					}
+					else
+					{
+						g_tabIndex = 0;
+						var strJson = GetHisAlarmDataFromKVAction();
+						if(strJson == "")
+						{
+							alert("查询历史报警数据为空！")
+						}
+						else
+						{
+							HistoryAlarmTable(strJson);
+							window.sessionStorage.HisAlarmInfo = strJson;
+						}
+					}
+				}
+				else
+				{
+					g_tabIndex = 0;
+					var strJson = GetHisAlarmDataFromKVAction();
+					HistoryAlarmTable(strJson);
+					window.sessionStorage.HisAlarmInfo = strJson;
+				}
+				window.sessionStorage.alarmdetail = false;
+				OnTab(1);
+			}
+		}
+		
+		//历史报警上一页
+		function Beforeone()
+		{
+			if(g_tabIndex == 0)
+			{
+				alert("第一页!");
+				return;
+			}
+			g_tabIndex--;
+			var strJson = GetHisAlarmDataFromKVAction();
+			HistoryAlarmTable(strJson);
+			window.sessionStorage.HisAlarmInfo = strJson;
+		}
+		
+		//历史报警下一页
+		function next()
+		{
+			g_tabIndex++;
+			var strJson = GetHisAlarmDataFromKVAction();
+			if(strJson == '')
+			{
+				alert("最后一页");
+				g_tabIndex--;
+			}
+			HistoryAlarmTable(strJson);
+			window.sessionStorage.HisAlarmInfo = strJson;
+		}
+
+		//实时报警Table
+		function RealTimeAlarmTable(JSONformat_PGDatas)
+		{
+			var tdata_str = '';
+			var obj = {Body:{records:[]}};
+			if(JSONformat_PGDatas != "")
+			{
+				obj = JSON.parse(JSONformat_PGDatas);	
+			}
+			if (obj != null)
+			{
+				var dianjihang;
+				var i, j;
+				var blname = [];
+				if (obj.Body.records == null)
+				{
+					var clearData = '{"total":'+0+',"rows":[' + "]}";
+					var tdata_obj = JSON.parse(clearData);
+
+					$('#realtimetabledatadiv').datagrid({
+						data:tdata_obj,
+						fitColumns: true,
+						singleSelect: true,
+						columns:
+						[[
+							{field:'a',title:'变量名称', width:fixWidth(0.18), align:'center'},
+							{field:'b',title:'事件类型', width:fixWidth(0.18), align:'center'},
+							{field:'c',title:'报警类型', width:fixWidth(0.18), align:'center'},
+							{field:'d',title:'报警时间', width:fixWidth(0.36), align:'center'},
+							{field:'e',title:'详细', width:fixWidth(0.10), align:'center'},
+						]],
+
+						onClickCell:function(index,field,value)
+						{
+							if(field=="e")
+							{
+								window.sessionStorage.paramebl = blname;
+								window.sessionStorage.parameindex = index;
+								EnterAlarmDetailPage();
+							}
+						},
+						remoteSort:false,
+					});
+				}
+				else
+				{
+					var rows_num = parseInt(obj.Body.records.length);
+					var fieldname= ["a","b","c","d","e"];
+
+					//准备数据
+					tdata_str = '{"total":'+rows_num+',"rows":[';
+					if (localStorage.newAlarmShow == "false")
+					{
+						for(var i=0;i<rows_num;i++)
+						{
+							tdata_str = tdata_str +"{";
+							var field_count = obj.Body.records[i].length;
+							for(j=0;j<field_count;j++)
+							{
+								var filedname = fieldname[j];
+
+								if(j==4)
+								{
+									tdata_str = tdata_str + '"' + filedname + '":"' +  '>' +'"';
+								}
+								else
+								{
+									tdata_str = tdata_str + '"' + filedname + '":"' +obj.Body.records[i][j+1] +'"';
+								}
+								if(j!=field_count-1)
+								{
+									tdata_str=tdata_str+",";
+								}
+							}
+							tdata_str = tdata_str +"}";
+							if(i!=rows_num-1)
+								tdata_str = tdata_str + ',';
+						}
+
+						for(var i=0;i<rows_num;i++)
+						{
+							blname[i] = obj.Body.records[i][1]; //得到变量名数组，准备传递到下一个页面用
+						}
+					}
+					else
+					{
+						for(var i=rows_num-1;i>=0;i--)
+						{
+							tdata_str = tdata_str +"{";
+							var field_count = obj.Body.records[i].length;
+							for(j=0;j<field_count;j++)
+							{
+								var filedname = fieldname[j];
+
+								if(j==4)
+								{
+									tdata_str = tdata_str + '"' + filedname + '":"' +  '>' +'"';
+								}
+								else
+								{
+									tdata_str = tdata_str + '"' + filedname + '":"' +obj.Body.records[i][j+1] +'"';
+								}
+								if(j!=field_count-1)
+								{
+									tdata_str=tdata_str+",";
+								}
+							}
+							tdata_str = tdata_str +"}";
+							if(i!=0)
+								tdata_str = tdata_str + ',';
+						}
+
+						for(var i=rows_num-1;i>=0;i--)
+						{
+							blname[i] = obj.Body.records[i][1]; //得到变量名数组，准备传递到下一个页面用
+						}
+					}
+
+					tdata_str = tdata_str + "]}";
+					var tdata_obj = JSON.parse(tdata_str);
+					$('#realtimetabledatadiv').datagrid({
+						data:tdata_obj,
+						fitColumns: true,
+						singleSelect: true,
+						columns:
+						[[
+							{field:'a',title:'变量名称', width:fixWidth(0.18), align:'center'},
+							{field:'b',title:'事件类型', width:fixWidth(0.18), align:'center'},
+							{field:'c',title:'报警类型', width:fixWidth(0.18), align:'center'},
+							{field:'d',title:'报警时间', width:fixWidth(0.36), align:'center'},
+							{field:'e',title:'详细', width:fixWidth(0.10), align:'center'},
+						]],
+
+						onClickCell:function(index,field,value){
+						if(field=="e")
+						{
+							var data=$('#realtimetabledatadiv').datagrid('getData');
+							if(typeof g_refreshAlarm != "undefined")
+							{
+								if(g_refreshAlarm == "true")
+								{
+									dianjihang =data.total - index - 1;
+								}
+							}
+							else
+							{
+								dianjihang =index;
+							}
+
+							window.sessionStorage.paramebl = blname;
+							window.sessionStorage.parameindex = dianjihang;
+							EnterAlarmDetailPage();
+						}
+					},
+					remoteSort:false,
+					});
+				}
+			}
+		}
+
+		//历史报警Table
+		function HistoryAlarmTable(JSONformat_PGDatas)
+		 {
+			var tdata_str = '';
+			var obj = JSON.parse(JSONformat_PGDatas);
+			if (obj != null)
+			{
+				var dianjihang;
+				var i, j;
+				var blname = [];
+				if (obj.Body.records == null)
+				{
+					var clearData = '{"total":'+0+',"rows":[' + "]}";
+					var tdata_obj = JSON.parse(clearData);
+
+					$('#historytabledatadiv').datagrid({
+						data:tdata_obj,
+						fitColumns: true,
+						singleSelect: true,
+						columns:
+							[[
+							{field:'a',title:'变量名称', width:fixWidth(0.18), align:'center'},
+							{field:'b',title:'事件类型', width:fixWidth(0.18), align:'center'},
+							{field:'c',title:'报警类型', width:fixWidth(0.18), align:'center'},
+							{field:'d',title:'报警时间', width:fixWidth(0.36), align:'center', sortable:true},
+							{field:'e',title:'详细', width:fixWidth(0.10), align:'center'},
+							]],
+
+						onClickCell:function(index,field,value){
+							if(field=="e")
+							{
+								dianjihang = index;
+								window.sessionStorage.paramebl = blname;
+								window.sessionStorage.parameindex = index;
+								EnterAlarmDetailPage();
+							}
+						},
+						sortName : 'd',
+						sortOrder : 'asc'
+					});
+			}
+			else
+			{
+				var rows_num = parseInt(obj.Body.records.length);
+				var fieldname= ["a","b","c","d","e"];
+
+				//准备数据
+				tdata_str = '{"total":'+rows_num+',"rows":[';
+				for(var i=0;i<rows_num;i++)
+				{
+					tdata_str = tdata_str +"{";
+					var field_count = obj.Body.records[i].length;
+					for(j=0;j<field_count;j++)
+					{
+						var filedname = fieldname[j];
+
+						if(j==4)
+						{
+							tdata_str = tdata_str + '"' + filedname + '":"' +  '>' +'"';
+						}
+						else
+						{
+							tdata_str = tdata_str + '"' + filedname + '":"' +obj.Body.records[i][j+1] +'"';
+						}
+						if(j!=field_count-1)
+						{
+							tdata_str=tdata_str+",";
+						}
+					}
+					tdata_str = tdata_str +"}";
+					if(i!=rows_num-1)
+						tdata_str = tdata_str + ',';
+				}
+
+				for(var i=0;i<rows_num;i++)
+				{
+					blname[i] = obj.Body.records[i][1]; //得到变量名数组，准备传递到下一个页面用
+				}
+				tdata_str = tdata_str + "]}";
+
+				var tdata_obj = JSON.parse(tdata_str);
+
+				$('#historytabledatadiv').datagrid({
+					data:tdata_obj,
+					fitColumns: true,
+					singleSelect: true,
+					columns:
+						[[
+						{field:'a',title:'变量名称', width:fixWidth(0.18), align:'center'},
+						{field:'b',title:'事件类型', width:fixWidth(0.18), align:'center'},
+						{field:'c',title:'报警类型', width:fixWidth(0.18), align:'center'},
+						{field:'d',title:'报警时间', width:fixWidth(0.36), align:'center'},
+						{field:'e',title:'详细', width:fixWidth(0.10), align:'center'},
+						]],
+
+					onClickCell:function(index,field,value){
+						if(field=="e")
+						{
+							dianjihang = index;
+							window.sessionStorage.paramebl = blname;
+							window.sessionStorage.parameindex = index;
+							EnterAlarmDetailPage();
+						}
+					},
+					remoteSort:false,
+					});
+				}
+			}
+		}
+
+		function fixWidth(percent)
+		{
+			return document.body.clientWidth * percent ;
+		}
+
+		//实时刷新报警信息
+		function OnRefreshAlarm()
+		{
+			//只对实时报警进行刷新
+			var object = window.sessionStorage.alarmtype;
+			if(typeof object != "undefined")
+			{
+				if(object == "RealtimeAlarm")
+				{
+					if(typeof g_refreshAlarm != "undefined")
+					{
+						if(g_refreshAlarm == "true" )
+						{
+							var strJson = GetRTAlarmDataFromKVAction();
+							RealTimeAlarmTable(strJson);
+							window.sessionStorage.RTAlarmInfo = strJson;
+							setTimeout("OnRefreshAlarm()",2000);
+						}
+					}
+				}
+			}
+		}
+
+		function EnterAlarmDetailPage()
+		{
+			var object = window.sessionStorage.alarmtype;
+			if(typeof object != "undefined")
+			{
+				if(object == "RealtimeAlarm")
+				{
+					window.location ="kingview_realtime_alarm_detail.html";
+				}
+				else
+				{
+					window.localStorage.tableindex = g_tabIndex;
+					window.location ="kingview_history_alarm_detail.html";
+				}
+			}
+		}
+
+		function KMRealtimeAlarm(){
+			window.sessionStorage.alarmtype = "RealtimeAlarm";
+			RefreshAlarmData();
+		}
+
+		function KMHistoryAlarm(){
+			window.sessionStorage.alarmtype = "HistoryAlarm";
+			RefreshAlarmData();
+		}
+
+		//实时数据配置
+		function KMAlarmDataSetting()
+		{
+			var object = window.sessionStorage.alarmtype;
+			if(typeof object != "undefined")
+			{
+				if(object == "RealtimeAlarm")
+				{
+					window.location ="kingview_realtime_alarm_query.html";
+				}
+				else
+				{
+					window.location ="kingview_history_alarm_query.html";
+				}
+			}
+			else
+			{
+				window.location ="kingview_realtime_alarm_query.html";
+			}
+			window.sessionStorage.alarmdetail = false;
+		}
+
+		//实时数据
+		function KMRealtimeData()
+		{
+			window.location ="kingview_realtimedata_page.html";
+		}
+
+		//历史数据
+		function KMHistoryData()
+		{
+			window.location ="kingview_historydata_page.html";
+		}
+
+		//报警数据
+		function KMAlarmData()
+		{
+			window.location ="kingview_alarmdata_page.html";
+		}
+
+		//系统设置
+		function KMSystermConfig()
+		{
+			window.location ="kingview_setting_page.html";
+		}
+		</script>
+
+		<script language=javascript>
+		if (screen.width < 800)
+		{
+			document.write('<link rel=stylesheet type="text/css" href="./js/css800.css">')
+		}
+		else
+		{
+			document.write('<link rel=stylesheet type="text/css" href="./js/css1024.css">')
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="alarmdata_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<table style="width:100%">
+					<tr align="center">
+						<td>
+							<select id="vargroup" data-native-menu="false" onchange="RefreshAlarmData()">
+								<option>选择变量组</option>
+							</select>
+						</td>
+
+						<td style="position:absolute;float:left;left:2%;margin-top:15px;">
+							<input type="image" id="KMSettingBtn" src="../images/setting.png" onclick="KMAlarmDataSetting()">
+						</td>
+						
+						<td style="position:absolute;float:right;right:2%;margin-top:15px;">
+							<input type="image" id="KMRefreshBtn" src="../images/refresh.png" onclick="RefreshAlarmData()">
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="wrap" id="wrap">
+				<ul class="tabClick">
+					<li class="active">实时报警</li>
+					<li>历史报警</li>
+				</ul>
+
+				<div class="lineBorder">
+					<div class="lineDiv"></div>
+				</div>
+
+				<div class="container">
+					<div class="tabCon">
+						<div class="tabBox">
+							<div class="tabList">
+								<div id="realtimeAlarmContain" name="realtimeAlarmContain" style="padding-top:2%;padding-left:2%;width:96%;height:450px;">
+									<div style="margin:10px 0 0 10px;width:98%;height:80%;" id="realtimetabledatadiv" >
+										<table class="easyui-datagrid" id="realtimetabledatadiv" align="center" style="width:100%;height:100%;border-width:1px;float:left;left:10%;" data-options="singleSelect:true,collapsible:false,method:'get'">
+											<thead>
+												<tr>
+													<td field="0"  align="center">变量名称</td>
+													<td field="1"  align="center">事件类型</td>
+													<td field="2"  align="center">报警类型</td>
+													<td field="3"  align="center">报警时间</td>
+													<td field="4"  align="center">详细</td>
+												</tr>
+											</thead>
+										</table>
+									</div>
+								</div>
+							</div>
+
+							<div class="tabList">
+								<div data-role="content" id="historyAlarmContain" name="historyAlarmContain" style = "padding-top:2%;padding-left:2%;width:96%;height:450px;">	
+									<div style="margin:10px 0 0 10px;width:98%;height:80%;" id="historytabledatadiv">
+										<table class="easyui-datagrid" id="historytabledatadiv" align="center" style="width:100%;height:100%;border-width:1px;float:left;left:10%;" data-options="singleSelect:true,collapsible:false,method:'get'"></table>
+									</div>
+									
+									<div style="width:100%;height:10%;padding-top:20px">
+										<div style = "width:50%;float:left">
+											<button id="KMPrevRecordBtn" onclick = "Beforeone()">上一页</button>
+										</div>
+
+										<div style = "width:50%;float:left">
+											<button id="KMNextRecordBtn" onclick = "next()">下一页</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div data-role="footer" id="KMFooter" data-position="fixed" data-tap-toggle="false">
+				<ul id="Navi">
+					<li><a onclick="KMRealtimeData()"><img src="../images/realtimedata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">实时数据</span></a></li>
+					<li><a onclick="KMHistoryData()"><img src="../images/historydata_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">历史数据</span></a></li>
+					<li class="active"><a onclick="KMAlarmData()"><img src="../images/alarmdata_selected.png" width="30" height="30"><span style="color:#D43C33;font-size: 12px">报警数据</span></a></li>
+					<li><a onclick="KMSystermConfig()"><img src="../images/setting_unselected.png" width="30" height="30"><span style="color:#5E5E5E;font-size: 12px">设置</span></a></li>
+				</ul>
+			</div>
+		</div>
+	</body>
+</html>

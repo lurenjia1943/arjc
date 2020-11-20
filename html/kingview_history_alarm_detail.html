@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="../js/KingMobile.css">
+		<link rel="stylesheet" href="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/jquery-easyui-1.4.3/themes/default/easyui.css">
+		<link rel="stylesheet" type="text/css" href="../thirdpart/jquery-easyui-1.4.3/themes/icon.css">
+
+		<script type="text/javascript" id = "kmclientinterface" ></script>
+		<script type="text/javascript" src="../js/kmwebdataserverparameters.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery.mobile-1.4.5/jquery.mobile-1.4.5.min.js"></script>
+		<script type="text/javascript" src="../thirdpart/jquery-easyui-1.4.3/jquery.easyui.min.js"></script>
+
+		<style>
+		.listview
+		{
+			background-color: lightgray;
+			border: 1px solid black;
+			font-weight: bold;
+			text-align: center;
+		}
+		.ui-block-b
+		{
+			border: 1px solid black;
+			font-weight: bold;
+			text-align: center;
+		}
+		</style>
+
+		<script type="text/javascript">
+		var g_index = 0;
+		var blname= [];
+		var index;
+		var g_userhandle;
+		var g_publickey;
+		var g_HistAlarmInfo = "";
+		$(document).on("pageinit", "#historyalarmdetail_page", function()
+		{
+			KmWebDataServer_URL = "http://" + window.sessionStorage.serverIP + ":" + window.sessionStorage.serverPort;
+			kmclientinterface.src = KmWebDataServer_URL+"/kmclientinterface.js";
+		});
+
+		window.onload = function()
+		{
+			g_userhandle = window.sessionStorage.userhandle;
+			g_publickey = window.sessionStorage.publickey;
+			g_index = window.sessionStorage.parameindex;
+			blname = window.sessionStorage.paramebl;
+			g_HistAlarmInfo = window.sessionStorage.HisAlarmInfo;
+			if(typeof g_HistAlarmInfo == "undefined")
+			{
+				alert("报警信息不存在！");
+				window.location = "kingview_alarmdata_page.html";
+			}
+			InitData();
+		}
+
+		function InitData()
+		{
+			var obj = JSON.parse(g_HistAlarmInfo);
+			if(obj == null)
+			{
+				return;
+			}
+			if(g_index < 0)
+			{
+				return;
+			}
+			var selectObj = obj.Body.records[g_index];
+			getlist(selectObj);
+		}
+
+
+		function PreviewPage()
+		{
+			window.sessionStorage.alarmdetail = true;
+			window.location ="kingview_alarmdata_page.html";
+		}
+
+		function next()
+		{
+			g_index++;
+			var obj = blname.split(",");
+			if(g_index >= obj.length)
+			{
+				alert("已经是最后一条！");
+				g_index--;
+				return;
+			}
+			InitData();
+		}
+
+		function Beforeone()
+		{
+			g_index--;
+			if(g_index < 0)
+			{
+				alert("已经是第一条！");
+				g_index++;
+				return;
+			}
+
+			InitData();
+		}
+
+		function getlist(alarmRecord)
+		{
+			if(alarmRecord == null)
+			{
+			  return;
+			}
+			var tdata_str = '';
+			var i, j;
+			var fieldname= ["a","b","c","d"];
+			var rows_num = 1;
+			var field_count = alarmRecord.length-1;
+			var bt = ["变量名","事件类型","报警类型","报警时间","报警值","限值","报警组","优先级","操作员","变量描述"];
+			//准备数据
+			tdata_str = '{"total":'+rows_num+',"rows":[';
+			for(i=0;i<field_count;i++)
+			{
+				tdata_str = tdata_str +"{";
+				tdata_str = tdata_str + '"' + fieldname[0] + '":"' +bt[i] + '","' + fieldname[1] + '":"' + alarmRecord[i+1]+'"';
+				tdata_str = tdata_str +"}";
+				if(i!=field_count-1)
+				{
+					tdata_str=tdata_str+",";
+				}
+			}
+			tdata_str = tdata_str + "]}";
+
+			var tdata_obj = JSON.parse(tdata_str);
+
+			$('#tablelist').datagrid({
+				data:tdata_obj,
+				fitColumns: true,
+				singleSelect: true,
+				columns:
+					 [[
+						{field:'a',title:'', width:100, align:'center'},
+						{field:'b',title:'', width:100, align:'center'},
+					]],
+				remoteSort:false,
+			});
+		}
+		</script>
+	</head>
+
+	<body>
+		<div data-role="page" id="historyalarmdetail_page">
+			<div data-role="header" id="KMHeader" data-position="fixed" data-tap-toggle="false">
+				<button class="ui-btn ui-icon-arrow-l ui-corner-all ui-btn-inline ui-btn-icon-notext ui-btn-icon-left" id="KMPreviewBtn" onclick="PreviewPage()"></button>
+				<h1 style="padding-top:20px;">历史报警详细</h1>
+			</div>
+
+			<div data-role="content">
+				<div style="width:100%;height:10%">
+					<div style = "width:50%;float:left">
+						<button id="KMPrevRecordBtn" onclick = "Beforeone()">上一条</button>
+					</div>
+
+					<div style = "width:50%;float:left">
+						<button id="KMNextRecordBtn" onclick = "next()">下一条</button>
+					</div>
+				</div>
+
+				<div id="0" style = "width:100%;height:80%;float:left;margin-top:30px" data-role="fieldcontain">
+					<table id="tablelist" class="easyui-datagrid" plain="true" style="width:100%" toolbar="#t" ></table>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
